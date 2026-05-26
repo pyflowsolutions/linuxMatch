@@ -1,0 +1,23 @@
+{
+  "topbar": {
+    "signIn": "Iniciar Sesión",
+    "signOut": "Cerrar Sesión",
+    "submitDistro": "Añadir Distro"
+  },
+  "submitDistro": {
+    "title": "Añadir Nueva Distribución",
+    "subtitle": "Colabora con la comunidad registrando un nuevo sistema operativo.",
+    "fields": {
+      "name": "Nombre de la Distribución",
+      "base": "Base oficial",
+      "desktop": "Escritorio por Defecto",
+      "architecture": "Arquitectura soportada",
+      "website": "Sitio Web Oficial (Opcional)",
+      "description": "Descripción / Resumen"
+    },
+    "buttons": {
+      "submit": "Registrar Distribución",
+      "saving": "Guardando distribución..."
+    }
+  }
+}
