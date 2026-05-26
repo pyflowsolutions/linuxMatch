@@ -242,7 +242,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
           onClick={fillDemo}
           className="mt-2.5 w-full text-xs font-semibold text-primary hover:underline text-center block"
         >
-          Autofill credentials
+          Autill credentials
         </button>
       </div>
     </form>
@@ -282,7 +282,6 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
     });
 
     if (error) {
-      // Si hay un error (ej: el usuario ya existe), lo mostramos en la raíz del formulario
       setError('root', { message: error.message });
       toast.error(error.message);
     } else {
@@ -474,25 +473,24 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
         )}
       </div>
 
-      {/* Terms */}
+      {/* Terms — CAMBIO CRÍTICO: Checkbox nativo accesible */}
       <div>
-        <label className="flex items-start gap-2.5 cursor-pointer group">
-          <div className="relative mt-0.5 shrink-0">
-            <input type="checkbox" className="sr-only" {...register('agreeTerms', { required: 'You must agree to the terms' })} />
-            <div
-              className={`w-4 h-4 rounded border-2 transition-colors ${
-                errors.agreeTerms
-                  ? 'border-danger' :'border-border group-hover:border-primary/50'
-              }`}
+        <label htmlFor="signup-agree-terms" className="flex items-start gap-2.5 cursor-pointer group select-none">
+          <div className="relative mt-0.5 shrink-0 flex items-center justify-center">
+            <input 
+              id="signup-agree-terms"
+              type="checkbox" 
+              className="h-4 w-4 rounded border-2 border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary checked:bg-primary" 
+              {...register('agreeTerms', { required: 'You must agree to the terms' })} 
             />
           </div>
-          <span className="text-xs text-muted-foreground leading-relaxed">
+          <span className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
             I agree to the{' '}
-            <a href="#" className="text-primary hover:underline">
+            <a href="#" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="text-primary hover:underline">
+            <a href="#" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
               Privacy Policy
             </a>
             . Community submissions are subject to moderation.
