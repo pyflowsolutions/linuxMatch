@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { User, LogOut, PlusCircle } from 'lucide-react';
+import { User, LogOut, PlusCircle, ShieldCheck } from 'lucide-react'; // Añadimos ShieldCheck para el icono de Admin
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 
@@ -13,38 +13,66 @@ interface TopbarProps {
 
 export default function Topbar({ dict, lang }: TopbarProps) {
   const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null); // Estdo local para controlar el rol
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  // Mapeo dinámico basado en las propiedades de tus diccionarios JSON (puedes ajustar las claves si cambias la estructura del json)
   const textSignIn = dict?.topbar?.signIn || "Sign In";
   const textSignOut = dict?.topbar?.signOut || "Sign Out";
   const textSubmitDistro = dict?.topbar?.submitDistro || "Submit Distro";
   const textProfileTooltip = lang === 'es' ? "Editar ajustes del perfil" : "Edit profile settings";
+  const textAdminTooltip = lang === 'es' ? "Panel de Administración" : "Admin Dashboard";
 
   useEffect(() => {
+    // Función auxiliar para obtener el rol desde la tabla pública de perfiles
+    const fetchUserRole = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (!error && data) {
+        setRole(data.role);
+      } else {
+        setRole('user'); // Fallback seguro
+      }
+    };
+
     const getActiveSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        await fetchUserRole(currentUser.id);
+      }
       setLoading(false);
     };
 
     getActiveSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        await fetchUserRole(currentUser.id);
+      } else {
+        setRole(null);
+      }
       setLoading(false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase.auth]);
+  }, [supabase]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    // Redirige al inicio manteniendo el prefijo del lenguaje actual
+    setRole(null);
     window.location.href = `/${lang}`;
   };
 
@@ -67,6 +95,17 @@ export default function Topbar({ dict, lang }: TopbarProps) {
           ) : user ? (
             /* ─── USUARIO LOGUEADO ─── */
             <>
+              {/* 🛡️ ACCESO PRIVADO: Solo si el rol obtenido de Supabase es 'admin' */}
+              {role === 'admin' && (
+                <Link
+                  href={`/${lang}/admin`}
+                  className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all"
+                  title={textAdminTooltip}
+                >
+                  <ShieldCheck size={18} className="animate-pulse" />
+                </Link>
+              )}
+
               {/* Bloque clickable que redirige a la edición del perfil */}
               <Link 
                 href={`/${lang}/profile`} 
