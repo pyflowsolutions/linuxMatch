@@ -1,11 +1,19 @@
 import React from 'react';
-import AppLayout from '@/components/AppLayout';
 import DistroDetailContent from './components/DistroDetailContent';
 
-export default function DistroDetailPage() {
+interface PageProps {
+  params: Promise<{ lang: 'es' | 'en' }>;
+  searchParams: Promise<{ id?: string }>;
+}
+
+export default async function DistroDetailPage({ params, searchParams }: PageProps) {
+  const { lang } = await params;
+  const { id } = await searchParams; // Captura el ?id=ubuntu de la URL
+
   return (
-    <AppLayout>
-      <DistroDetailContent />
-    </AppLayout>
+    <div className="w-full min-h-screen bg-background">
+      {/* Pasamos el id de la distro elegida y el idioma actual */}
+      <DistroDetailContent distroId={id || ''} lang={lang} />
+    </div>
   );
 }
