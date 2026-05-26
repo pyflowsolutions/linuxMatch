@@ -6,7 +6,7 @@ import DistroResultsPanel from './DistroResultsPanel';
 import CompareBar from './CompareBar';
 import { useDistroFilter } from './useDistroFilter';
 import { distros as initialDistros } from './distroData'; 
-
+//cambio de imports
 interface FinderPageWrapperProps {
   dict: any;
   lang: string;
