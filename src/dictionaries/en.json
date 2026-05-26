@@ -1,0 +1,23 @@
+{
+  "topbar": {
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "submitDistro": "Submit Distro"
+  },
+  "submitDistro": {
+    "title": "Submit New Distribution",
+    "subtitle": "Collaborate with the community by registering a new operating system.",
+    "fields": {
+      "name": "Distribution Name",
+      "base": "Official Base",
+      "desktop": "Default Desktop",
+      "architecture": "Supported Architecture",
+      "website": "Official Website (Optional)",
+      "description": "Description / Summary"
+    },
+    "buttons": {
+      "submit": "Register Distribution",
+      "saving": "Saving distribution..."
+    }
+  }
+}
