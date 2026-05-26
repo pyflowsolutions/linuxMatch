@@ -63,8 +63,9 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
   const [bookmarked, setBookmarked] = useState(false);
 
   // 1. Buscamos la distribución forzando la comparación a String para evitar choques num/string
-  const DISTRO = ALL_DISTROS?.find((d) => String(d.id) === String(distroId));
-
+const DISTRO = ALL_DISTROS?.find(
+  (d) => String(d.id).trim().toLowerCase() === String(distroId).trim().toLowerCase()
+);
   // 2. Cláusula de salvaguarda: si no se encuentra la distro, muestra un error elegante en lugar de romper el cliente
   if (!DISTRO) {
     return (
