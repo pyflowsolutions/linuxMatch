@@ -108,37 +108,52 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
   };
 
   const handleSaveDistro = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingDistro?.name) return;
+  e.preventDefault();
+  if (!editingDistro?.name) return;
 
-    const distroId = editingDistro.id || editingDistro.name.toLowerCase().replace(/\s+/g, '-');
-    
-    const finalDistro = {
-      id: distroId,
-      name: editingDistro.name,
-      tagline: editingDistro.tagline || '',
-      logoInitials: editingDistro.logoInitials || editingDistro.name.substring(0, 3).toUpperCase(),
-      logoColor: editingDistro.logoColor || '#3b82f6',
-      minRam: editingDistro.minRam || 2,
-      minStorage: editingDistro.minStorage || 20,
-      minCpuCores: editingDistro.minCpuCores || 2,
-      releaseModel: editingDistro.releaseModel || 'LTS',
-      cpuArchitecture: editingDistro.cpuArchitecture || 'AMD64 / x86-64',
-      useCases: editingDistro.useCases || ['general']
-    };
+  // Generamos el ID único (slug) si es una distro nueva
+  const distroId = editingDistro.id || editingDistro.name.toLowerCase().trim().replace(/\s+/g, '-');
+  
+  // Mapeamos el objeto asegurando que las claves coincidan EXACTAMENTE 
+  // con las columnas que pusimos en el script SQL de Supabase
+  const finalDistro = {
+    id: distroId,
+    name: editingDistro.name,
+    tagline: editingDistro.tagline || '',
+    logoInitials: editingDistro.logoInitials || editingDistro.name.substring(0, 3).toUpperCase(),
+    logoColor: editingDistro.logoColor || '#3b82f6',
+    minRam: editingDistro.minRam || 2,
+    minStorage: editingDistro.minStorage || 20,
+    minCpuCores: editingDistro.minCpuCores || 2,
+    releaseModel: editingDistro.releaseModel || 'LTS',
+    cpuArchitecture: editingDistro.cpuArchitecture || 'AMD64 / x86-64',
+    // Aseguramos que useCases sea un Array válido para la columna text[]
+    useCases: Array.isArray(editingDistro.useCases) ? editingDistro.useCases : ['Beginner']
+  };
 
+  try {
     const { error } = await supabase
       .from('distributions')
       .upsert(finalDistro);
 
     if (error) {
-      alert(`Error de Supabase al guardar: ${error.message}\nDetalles: ${error.details || 'Ninguno'}`);
+      // Si Supabase rechaza el insert por falta de una columna o tipos erróneos, saltará aquí
+      console.error("Error de Supabase:", error);
+      alert(`Error al guardar en Supabase:\n\nMensaje: ${error.message}\nDetalle: ${error.details || 'Ninguno'}\nCódigo: ${error.code}`);
     } else {
-      alert(lang === 'es' ? '¡Guardado correctamente!' : 'Saved successfully!');
-      fetchCollections();
+      alert('¡Distribución guardada correctamente en la base de datos!');
+      // Refrescamos la lista de la izquierda
+      if (typeof fetchCollections === 'function') {
+        fetchCollections();
+      }
+      // Cerramos el formulario limpiando el estado
       setEditingDistro(null);
     }
-  };
+  } catch (err: any) {
+    console.error("Error crítico en la petición:", err);
+    alert(`Error inesperado en el cliente: ${err.message || err}`);
+  }
+};
 
   const handleDeleteDistro = async (id: string) => {
     const confirmMsg = lang === 'es' ? '¿Eliminar esta distribución del catálogo?' : 'Delete this distribution from the catalog?';
