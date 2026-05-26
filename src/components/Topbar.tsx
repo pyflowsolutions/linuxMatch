@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { User, LogOut, PlusCircle, ArrowLeft } from 'lucide-react';
+import { User, LogOut, PlusCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
 
@@ -12,7 +12,6 @@ export default function Topbar() {
   const supabase = createClient();
 
   useEffect(() => {
-    // 1. Verificar si hay una sesión activa al cargar la página
     const getActiveSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
@@ -21,7 +20,6 @@ export default function Topbar() {
 
     getActiveSession();
 
-    // 2. Escuchar cambios de estado en tiempo real (Login, Logout, Registro confirmado)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -35,7 +33,7 @@ export default function Topbar() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    window.location.href = '/'; // Redirige a la home y limpia los estados
+    window.location.href = '/';
   };
 
   return (
@@ -50,21 +48,24 @@ export default function Topbar() {
           </span>
         </Link>
 
-        {/* Lado Derecho: Controles dinámicos de usuario */}
+        {/* Lado Derecho: Controles dinámicos */}
         <div className="flex items-center gap-4">
           {loading ? (
-            // Esqueleto animado mientras Supabase responde
             <div className="h-8 w-20 animate-pulse bg-muted rounded-lg" />
           ) : user ? (
             /* ─── USUARIO LOGUEADO ─── */
             <>
-              {/* Bloque con el Username */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted border border-border">
-                <User size={14} className="text-primary" />
-                <span className="text-xs font-semibold text-foreground">
+              {/* Bloque clickable que redirige a la edición del perfil */}
+              <Link 
+                href="/profile" 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted border border-border hover:bg-muted/80 transition-colors group"
+                title="Edit profile settings"
+              >
+                <User size={14} className="text-primary group-hover:scale-105 transition-transform" />
+                <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
                   @{user.user_metadata?.username || 'user'}
                 </span>
-              </div>
+              </Link>
 
               {/* Botón de Logout */}
               <button
