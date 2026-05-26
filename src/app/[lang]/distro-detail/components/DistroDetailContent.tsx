@@ -20,14 +20,10 @@ import {
   ChevronRight,
   ThumbsUp,
   CheckCircle,
-  AlertCircle,
-  CheckSquare,
-  XCircle,
-  MinusCircle,
 } from 'lucide-react';
 
 // Corregido el import con alias absoluto
-import { ALL_DISTROS, USE_CASE_CONFIG, Distro, UseCase } from '@/components/distroData';
+import { ALL_DISTROS, USE_CASE_CONFIG, Distro } from '@/components/distroData';
 import Badge from '@/components/ui/Badge';
 import DistroRadarChart from './DistroRadarChart';
 import RatingBreakdownChart from './RatingBreakdownChart';
@@ -66,8 +62,32 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [bookmarked, setBookmarked] = useState(false);
 
-  // Buscamos la distribución real por ID dinámico. Si no existe, usamos fallback seguro.
-  const DISTRO = ALL_DISTROS.find((d) => d.id === distroId) || ALL_DISTROS[0];
+  // 1. Buscamos la distribución forzando la comparación a String para evitar choques num/string
+  const DISTRO = ALL_DISTROS?.find((d) => String(d.id) === String(distroId));
+
+  // 2. Cláusula de salvaguarda: si no se encuentra la distro, muestra un error elegante en lugar de romper el cliente
+  if (!DISTRO) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <div className="bg-card p-8 rounded-2xl border border-border max-w-md mx-auto shadow-sm">
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            {lang === 'es' ? 'Distribución no encontrada' : 'Distribution not found'}
+          </h2>
+          <p className="text-muted-foreground text-sm mb-6">
+            {lang === 'es' 
+              ? `No hemos podido cargar los detalles para el identificador "${distroId}".` 
+              : `We could not load the details for the identifier "${distroId}".`}
+          </p>
+          <Link 
+            href={`/${lang}`} 
+            className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-6 font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 text-sm"
+          >
+            {lang === 'es' ? 'Volver al buscador' : 'Back to finder'}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 lg:px-8 xl:px-10 2xl:px-16 py-4">
