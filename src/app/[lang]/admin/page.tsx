@@ -1,90 +1,172 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, Disc, ShieldAlert, Plus, Edit, Trash2, UserCheck } from 'lucide-react';
-import { ALL_DISTROS, Distro } from '@/components/distroData';
+import { createClient } from '@/lib/supabase/client';
+import { Distro } from '@/components/distroData';
 
-// Interfaces de simulación
 interface ManagedUser {
   id: string;
-  name: string;
-  email: string;
+  name: string | null;
+  email: string | null;
   role: 'admin' | 'user';
 }
 
-interface AdminPanelProps {
-  lang: string;
-  currentUser: { role: string; name: string } | null; // Usuario actualmente logueado
-}
+export default function AdminDashboard({ params }: { params: { lang: string } }) {
+  const lang = params.lang;
+  const router = useRouter();
+  const supabase = createClient();
 
-export default function AdminDashboard({ lang, currentUser }: AdminPanelProps) {
-  // 1. Cláusula de protección: Si no es administrador, denegar el acceso inmediatamente
-  if (!currentUser || currentUser.role !== 'admin') {
+  // Estados de carga y seguridad
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [activeTab, setActiveTab] = useState<'users' | 'distros'>('users');
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Estados de datos reales de Supabase
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [distros, setDistros] = useState<Distro[]>([]);
+  
+  // Estado para el formulario de distros
+  const [editingDistro, setEditingDistro] = useState<Partial<Distro> | null>(null);
+
+  // 1. Verificación de seguridad (Ruta protegida por Rol)
+  useEffect(() => {
+    async function checkAdminSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        router.push(`/${lang}/sign-up-login`);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!error && data?.role === 'admin') {
+        setIsAdmin(true);
+        // Si es admin, cargamos los datos de las tablas
+        fetchCollections();
+      } else {
+        setIsAdmin(false);
+        router.push(`/${lang}`);
+      }
+    }
+    checkAdminSession();
+  }, [supabase, router, lang]);
+
+  // 2. Cargar datos desde Supabase
+  const fetchCollections = async () => {
+    setLoadingData(true);
+    
+    // Traer usuarios registrados
+    const { data: userData, error: userError } = await supabase
+      .from('profiles')
+      .select('id, name, email, role')
+      .order('name', { ascending: true });
+
+    // Traer distribuciones del catálogo
+    const { data: distroData, error: distroError } = await supabase
+      .from('distributions')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (!userError && userData) setUsers(userData as ManagedUser[]);
+    if (!distroError && distroData) setDistros(distroData as Distro[]);
+    
+    setLoadingData(false);
+  };
+
+  // 3. Lógica persistente de Usuarios
+  const toggleUserRole = async (userId: string, currentRole: string) => {
+    const nextRole = currentRole === 'admin' ? 'user' : 'admin';
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: nextRole })
+      .eq('id', userId);
+
+    if (!error) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: nextRole as any } : u));
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    const confirmMsg = lang === 'es' ? '¿Seguro que deseas eliminar este usuario?' : 'Are you sure you want to delete this user?';
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (!error) {
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    }
+  };
+
+  // 4. Lógica persistente de Distribuciones (CRUD)
+  const handleSaveDistro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDistro?.name) return;
+
+    // Generar id/slug si es nueva distro
+    const distroId = editingDistro.id || editingDistro.name.toLowerCase().replace(/\s+/g, '-');
+    
+    const finalDistro = {
+      ...editingDistro,
+      id: distroId,
+      useCases: editingDistro.useCases || ['general']
+    };
+
+    const { error } = await supabase
+      .from('distributions')
+      .upsert(finalDistro);
+
+    if (!error) {
+      fetchCollections(); // Refrescar lista completa
+      setEditingDistro(null);
+    }
+  };
+
+  const handleDeleteDistro = async (id: string) => {
+    const confirmMsg = lang === 'es' ? '¿Eliminar esta distribución del catálogo?' : 'Delete this distribution from the catalog?';
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await supabase
+      .from('distributions')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setDistros(prev => prev.filter(d => d.id !== id));
+      setEditingDistro(null);
+    }
+  };
+
+  // Pantalla de carga inicial de seguridad
+  if (isAdmin === null) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Cláusula de protección visual
+  if (!isAdmin) {
     return (
       <div className="max-w-md mx-auto my-16 text-center p-8 bg-card border border-destructive/30 rounded-2xl shadow-sm">
         <ShieldAlert size={48} className="text-destructive mx-auto mb-4" />
         <h2 className="text-lg font-bold text-foreground mb-2">
           {lang === 'es' ? 'Acceso Denegado' : 'Access Denied'}
         </h2>
-        <p className="text-xs text-muted-foreground">
-          {lang === 'es' 
-            ? 'No tienes los permisos necesarios para ver esta sección.' 
-            : 'You do not have the required permissions to view this section.'}
-        </p>
       </div>
     );
   }
-
-  const [activeTab, setActiveTab] = useState<'users' | 'distros'>('users');
-
-  // Estados locales simulando persistencia de datos
-  const [users, setUsers] = useState<ManagedUser[]>([
-    { id: '1', name: 'Luis Sergio', email: 'luis@example.com', role: 'admin' },
-    { id: '2', name: 'Carlos Mendoza', email: 'carlos@example.com', role: 'user' },
-    { id: '3', name: 'Ana Gómez', email: 'ana@example.com', role: 'user' },
-  ]);
-  const [distros, setDistros] = useState<Distro[]>(ALL_DISTROS || []);
-
-  // --- LÓGICA DE USUARIOS ---
-  const toggleUserRole = (userId: string) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return { ...u, role: u.role === 'admin' ? 'user' : 'admin' };
-      }
-      return u;
-    }));
-  };
-
-  const deleteUser = (userId: string) => {
-    if (confirm(lang === 'es' ? '¿Seguro que deseas eliminar este usuario?' : 'Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(u => u.id !== userId));
-    }
-  };
-
-  // --- LÓGICA DE DISTRIBUCIONES ---
-  const [editingDistro, setEditingDistro] = useState<Partial<Distro> | null>(null);
-
-  const handleSaveDistro = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingDistro?.name) return;
-
-    if (editingDistro.id) {
-      // Editar existente
-      setDistros(prev => prev.map(d => String(d.id) === String(editingDistro.id) ? (editingDistro as Distro) : d));
-    } else {
-      // Crear nueva ficha
-      const newDistro: Distro = {
-        ...(editingDistro as Distro),
-        id: editingDistro.name.toLowerCase().replace(/\s+/g, '-'),
-        reviewCount: 0,
-        communityRating: 5.0,
-        compatibilityScore: 100,
-        useCases: editingDistro.useCases || ['general'],
-      };
-      setDistros(prev => [newDistro, ...prev]);
-    }
-    setEditingDistro(null); // Cerrar formulario
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 text-foreground space-y-6">
@@ -121,98 +203,118 @@ export default function AdminDashboard({ lang, currentUser }: AdminPanelProps) {
       {/* CONTENIDO PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* PANEL IZQUIERDO / TABLA PRINCIPAL */}
+        {/* PANEL IZQUIERDO / LISTADOS */}
         <div className="lg:col-span-2 space-y-4">
-          
-          {/* TAB 1: GESTIÓN DE USUARIOS */}
-          {activeTab === 'users' && (
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-border bg-muted/10">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {lang === 'es' ? 'Usuarios del Sistema' : 'System Users'}
-                </h3>
-              </div>
-              <div className="divide-y divide-border">
-                {users.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold">{u.name}</span>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded ${u.role === 'admin' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
-                          {u.role.toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground font-mono">{u.email}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleUserRole(u.id)}
-                        title={lang === 'es' ? 'Cambiar Rol de Permisos' : 'Toggle Permission Role'}
-                        className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-xl transition-colors"
-                      >
-                        <UserCheck size={16} />
-                      </button>
-                      <button
-                        onClick={() => deleteUser(u.id)}
-                        title={lang === 'es' ? 'Eliminar Usuario' : 'Delete User'}
-                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {loadingData ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-12 bg-muted rounded-xl" />
+              <div className="h-12 bg-muted rounded-xl" />
             </div>
-          )}
+          ) : (
+            <>
+              {/* TAB 1: GESTIÓN DE USUARIOS */}
+              {activeTab === 'users' && (
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-border bg-muted/10">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === 'es' ? 'Usuarios del Sistema' : 'System Users'}
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {users.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold">{u.name || 'Sin nombre'}</span>
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded ${u.role === 'admin' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                              {u.role.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-mono">{u.email}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => toggleUserRole(u.id, u.role)}
+                            title={lang === 'es' ? 'Cambiar Rol' : 'Toggle Role'}
+                            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-xl transition-colors"
+                          >
+                            <UserCheck size={16} />
+                          </button>
+                          <button
+                            onClick={() => deleteUser(u.id)}
+                            title={lang === 'es' ? 'Eliminar Usuario' : 'Delete User'}
+                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* TAB 2: GESTIÓN DE DISTRIBUCIONES */}
-          {activeTab === 'distros' && (
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-border bg-muted/10 flex justify-between items-center">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {lang === 'es' ? 'Fichas Tecnológicas' : 'Technological Sheets'}
-                </h3>
-                <button
-                  onClick={() => setEditingDistro({ name: '', tagline: '', logoInitials: '', logoColor: '#3b82f6', minRam: 2, minStorage: 20, minCpuCores: 2, releaseModel: 'LTS', useCases: ['general'] })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 transition-opacity"
-                >
-                  <Plus size={14} />
-                  {lang === 'es' ? 'Nueva Ficha' : 'New Sheet'}
-                </button>
-              </div>
-              <div className="divide-y divide-border">
-                {distros.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs shrink-0" style={{ backgroundColor: d.logoColor }}>
-                        {d.logoInitials}
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold block">{d.name}</span>
-                        <span className="text-[11px] text-muted-foreground line-clamp-1">{d.tagline}</span>
-                      </div>
-                    </div>
+              {/* TAB 2: GESTIÓN DE DISTRIBUCIONES */}
+              {activeTab === 'distros' && (
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-border bg-muted/10 flex justify-between items-center">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {lang === 'es' ? 'Fichas Tecnológicas' : 'Technological Sheets'}
+                    </h3>
                     <button
-                      onClick={() => setEditingDistro(d)}
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-xl transition-colors"
+                      onClick={() => setEditingDistro({ name: '', tagline: '', logoInitials: '', logoColor: '#3b82f6', minRam: 2, minStorage: 20, minCpuCores: 2, releaseModel: 'LTS' })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 transition-opacity"
                     >
-                      <Edit size={16} />
+                      <Plus size={14} />
+                      {lang === 'es' ? 'Nueva Ficha' : 'New Sheet'}
                     </button>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="divide-y divide-border">
+                    {distros.map((d) => (
+                      <div key={d.id} className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs shrink-0" style={{ backgroundColor: d.logoColor }}>
+                            {d.logoInitials}
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold block">{d.name}</span>
+                            <span className="text-[11px] text-muted-foreground line-clamp-1">{d.tagline}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setEditingDistro(d)}
+                          className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-xl transition-colors"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* PANEL DERECHO: FORMULARIO DINÁMICO DE CREACIÓN/EDICIÓN */}
+        {/* PANEL DERECHO: FORMULARIO */}
         <div className="lg:col-span-1">
           {activeTab === 'distros' && editingDistro ? (
             <form onSubmit={handleSaveDistro} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                {editingDistro.id ? (lang === 'es' ? 'Editar Distribución' : 'Edit Distribution') : (lang === 'es' ? 'Nueva Distribución' : 'Create Distribution')}
-              </h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  {editingDistro.id ? (lang === 'es' ? 'Editar Distribución' : 'Edit Distribution') : (lang === 'es' ? 'Nueva Distribución' : 'Create Distribution')}
+                </h3>
+                {editingDistro.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDistro(editingDistro.id!)}
+                    className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg transition-colors"
+                    title={lang === 'es' ? 'Borrar permanentemente' : 'Delete permanently'}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
               
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-muted-foreground uppercase">{lang === 'es' ? 'Nombre' : 'Name'}</label>
