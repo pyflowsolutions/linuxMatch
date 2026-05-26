@@ -15,11 +15,12 @@ import {
   Loader2,
   ArrowLeft,
   CheckCircle,
+  AtSign,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import AppLogo from '@/components/ui/AppLogo';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client'; // 1. Importamos tu cliente de Supabase
+import { createClient } from '@/lib/supabase/client';
 
 /* ─── Types ─────────────────────────────────────────────────── */
 interface LoginFormData {
@@ -29,6 +30,7 @@ interface LoginFormData {
 }
 
 interface SignupFormData {
+  username: string;
   fullName: string;
   email: string;
   password: string;
@@ -62,7 +64,7 @@ function CopyButton({ value }: { value: string }) {
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const supabase = createClient(); // Inicializamos el cliente
+  const supabase = createClient();
 
   const {
     register,
@@ -77,8 +79,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
     
-    // INTEGRACIÓN CON SUPABASE: Login real
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
@@ -86,11 +87,10 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     if (error) {
       setError('root', { message: error.message });
     } else {
-      toast.success('Welcome back! Redirecting to Distro Finder…', { icon: '🐧' });
-      // Redirigir al dashboard o refrescar la página tras el login exitoso
+      toast.success('Welcome back! Redirecting...', { icon: '🐧' });
       setTimeout(() => {
         window.location.href = '/';
-      }, 1000);
+      }, 800);
     }
     setIsSubmitting(false);
   };
@@ -102,7 +102,6 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      {/* Root error */}
       {errors.root && (
         <div className="flex items-start gap-2.5 p-3 bg-danger-light border border-danger/20 rounded-lg">
           <Shield size={14} className="text-danger mt-0.5 shrink-0" />
@@ -110,7 +109,6 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         </div>
       )}
 
-      {/* Email */}
       <div>
         <label htmlFor="login-email" className="block text-xs font-semibold text-foreground mb-1.5">
           Email address
@@ -129,22 +127,15 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             },
           })}
         />
-        {errors.email && (
-          <p className="mt-1 text-xs text-danger">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="mt-1 text-xs text-danger">{errors.email.message}</p>}
       </div>
 
-      {/* Password */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label htmlFor="login-password" className="text-xs font-semibold text-foreground">
             Password
           </label>
-          <button
-            type="button"
-            className="text-xs text-primary hover:underline"
-            tabIndex={-1}
-          >
+          <button type="button" className="text-xs text-primary hover:underline" tabIndex={-1}>
             Forgot password?
           </button>
         </div>
@@ -155,26 +146,19 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             autoComplete="current-password"
             placeholder="••••••••"
             className={`input-field pr-10 ${errors.password ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
-            {...register('password', {
-              required: 'Password is required',
-              minLength: { value: 6, message: 'Password must be at least 6 characters' },
-            })}
+            {...register('password', { required: 'Password is required' })}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-        {errors.password && (
-          <p className="mt-1 text-xs text-danger">{errors.password.message}</p>
-        )}
+        {errors.password && <p className="mt-1 text-xs text-danger">{errors.password.message}</p>}
       </div>
 
-      {/* Remember me */}
       <label className="flex items-center gap-2.5 cursor-pointer group">
         <div className="relative">
           <input type="checkbox" className="sr-only" {...register('rememberMe')} />
@@ -183,13 +167,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         <span className="text-xs text-muted-foreground">Remember me for 30 days</span>
       </label>
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="btn-primary w-full justify-center py-3 mt-2"
-        style={{ minWidth: '120px' }}
-      >
+      <button type="submit" disabled={isSubmitting} className="btn-primary w-full justify-center py-3 mt-2">
         {isSubmitting ? (
           <>
             <Loader2 size={15} className="animate-spin" />
@@ -200,49 +178,33 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         )}
       </button>
 
-      {/* Switch */}
       <p className="text-center text-xs text-muted-foreground pt-1">
         Don&apos;t have an account?{' '}
-        <button
-          type="button"
-          onClick={onSwitch}
-          className="text-primary font-semibold hover:underline"
-        >
+        <button type="button" onClick={onSwitch} className="text-primary font-semibold hover:underline">
           Create one free
         </button>
       </p>
 
-      {/* Demo credentials box */}
       <div className="mt-4 p-4 bg-muted/60 rounded-xl border border-border">
-        <p className="text-xs font-semibold text-foreground mb-2.5">
-          Demo account — click to autofill
-        </p>
+        <p className="text-xs font-semibold text-foreground mb-2.5">Demo account — click to autofill</p>
         <div className="space-y-2">
           <div className="flex items-center justify-between bg-card rounded-lg px-3 py-2 border border-border">
             <div>
               <p className="text-2xs text-muted-foreground mb-0.5">Email</p>
-              <p className="text-xs font-mono font-semibold text-foreground">
-                demo@linuxmatch.dev
-              </p>
+              <p className="text-xs font-mono font-semibold text-foreground">demo@linuxmatch.dev</p>
             </div>
             <CopyButton value="demo@linuxmatch.dev" />
           </div>
           <div className="flex items-center justify-between bg-card rounded-lg px-3 py-2 border border-border">
             <div>
               <p className="text-2xs text-muted-foreground mb-0.5">Password</p>
-              <p className="text-xs font-mono font-semibold text-foreground">
-                Tux$2026!
-              </p>
+              <p className="text-xs font-mono font-semibold text-foreground">Tux$2026!</p>
             </div>
             <CopyButton value="Tux$2026!" />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={fillDemo}
-          className="mt-2.5 w-full text-xs font-semibold text-primary hover:underline text-center block"
-        >
-          Autill credentials
+        <button type="button" onClick={fillDemo} className="mt-2.5 w-full text-xs font-semibold text-primary hover:underline text-center block">
+          Autofill credentials
         </button>
       </div>
     </form>
@@ -255,7 +217,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const supabase = createClient(); // Inicializamos el cliente
+  const supabase = createClient();
 
   const {
     register,
@@ -270,13 +232,13 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   const onSubmit = async (data: SignupFormData) => {
     setIsSubmitting(true);
     
-    // INTEGRACIÓN CON SUPABASE: Registro real de usuario
-    const { data: authData, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
         data: {
-          display_name: data.fullName, // Guardamos el nombre completo en los metadatos
+          username: data.username.toLowerCase().trim(),
+          display_name: data.fullName,
         },
       },
     });
@@ -286,7 +248,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
       toast.error(error.message);
     } else {
       setSuccess(true);
-      toast.success('Account created! Welcome to LinuxMatch 🐧');
+      toast.success('Account created! Check your email 🐧');
     }
     
     setIsSubmitting(false);
@@ -300,7 +262,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
         </div>
         <h3 className="text-lg font-bold text-foreground mb-2">Account created!</h3>
         <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-          Please check your email to confirm your account. Then you can submit distributions, write reviews, and save your favorite distros.
+          Please check your email to confirm your account. After confirmation, your profile will be active.
         </p>
         <Link href="/" className="btn-primary">
           Go to Distro Finder
@@ -311,13 +273,39 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      {/* Root error para Signup */}
       {errors.root && (
         <div className="flex items-start gap-2.5 p-3 bg-danger-light border border-danger/20 rounded-lg">
           <Shield size={14} className="text-danger mt-0.5 shrink-0" />
           <p className="text-xs text-danger">{errors.root.message}</p>
         </div>
       )}
+
+      {/* Username Field */}
+      <div>
+        <label htmlFor="signup-username" className="block text-xs font-semibold text-foreground mb-1.5">
+          Username
+        </label>
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <AtSign size={14} />
+          </div>
+          <input
+            id="signup-username"
+            type="text"
+            placeholder="linus_tux"
+            className={`input-field pl-9 ${errors.username ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
+            {...register('username', {
+              required: 'Username is required',
+              minLength: { value: 3, message: 'Username must be at least 3 characters' },
+              pattern: {
+                value: /^[a-zA-Z0-9_]+$/,
+                message: 'Only letters, numbers and underscores allowed',
+              },
+            })}
+          />
+        </div>
+        {errors.username && <p className="mt-1 text-xs text-danger">{errors.username.message}</p>}
+      </div>
 
       {/* Full Name */}
       <div>
@@ -327,17 +315,11 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
         <input
           id="signup-name"
           type="text"
-          autoComplete="name"
           placeholder="Linus Torvalds"
           className={`input-field ${errors.fullName ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
-          {...register('fullName', {
-            required: 'Full name is required',
-            minLength: { value: 2, message: 'Name must be at least 2 characters' },
-          })}
+          {...register('fullName', { required: 'Full name is required' })}
         />
-        {errors.fullName && (
-          <p className="mt-1 text-xs text-danger">{errors.fullName.message}</p>
-        )}
+        {errors.fullName && <p className="mt-1 text-xs text-danger">{errors.fullName.message}</p>}
       </div>
 
       {/* Email */}
@@ -348,7 +330,6 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
         <input
           id="signup-email"
           type="email"
-          autoComplete="email"
           placeholder="you@example.com"
           className={`input-field ${errors.email ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
           {...register('email', {
@@ -359,99 +340,41 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
             },
           })}
         />
-        {errors.email && (
-          <p className="mt-1 text-xs text-danger">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="mt-1 text-xs text-danger">{errors.email.message}</p>}
       </div>
 
       {/* Password */}
       <div>
         <label htmlFor="signup-password" className="block text-xs font-semibold text-foreground mb-1.5">
-          Password
-          <span className="ml-1 text-muted-foreground font-normal">(min. 8 characters)</span>
+          Password <span className="ml-1 text-muted-foreground font-normal">(min. 8 chars)</span>
         </label>
         <div className="relative">
           <input
             id="signup-password"
             type={showPassword ? 'text' : 'password'}
-            autoComplete="new-password"
             placeholder="••••••••"
             className={`input-field pr-10 ${errors.password ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
             {...register('password', {
               required: 'Password is required',
               minLength: { value: 8, message: 'Password must be at least 8 characters' },
-              pattern: {
-                value: /^(?=.*[A-Z])(?=.*\d)/,
-                message: 'Must include at least one uppercase letter and one number',
-              },
             })}
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-          >
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
             {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-        {errors.password && (
-          <p className="mt-1 text-xs text-danger">{errors.password.message}</p>
-        )}
-        {/* Password strength */}
-        {passwordValue.length > 0 && (
-          <div className="mt-2">
-            <div className="flex gap-1">
-              {[1, 2, 3, 4].map((level) => {
-                const strength =
-                  (passwordValue.length >= 8 ? 1 : 0) +
-                  (/[A-Z]/.test(passwordValue) ? 1 : 0) +
-                  (/\d/.test(passwordValue) ? 1 : 0) +
-                  (/[^A-Za-z0-9]/.test(passwordValue) ? 1 : 0);
-                return (
-                  <div
-                    key={`strength-${level}`}
-                    className="flex-1 h-1 rounded-full transition-all duration-300"
-                    style={{
-                      background:
-                        level <= strength
-                          ? strength <= 1
-                            ? 'var(--danger)'
-                            : strength <= 2
-                            ? 'var(--warning)'
-                            : 'var(--success)' :'var(--border)',
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <p className="text-2xs text-muted-foreground mt-1">
-              {(() => {
-                const s =
-                  (passwordValue.length >= 8 ? 1 : 0) +
-                  (/[A-Z]/.test(passwordValue) ? 1 : 0) +
-                  (/\d/.test(passwordValue) ? 1 : 0) +
-                  (/[^A-Za-z0-9]/.test(passwordValue) ? 1 : 0);
-                return s <= 1 ? 'Weak' : s <= 2 ? 'Fair' : s === 3 ? 'Good' : 'Strong';
-              })()}
-            </p>
-          </div>
-        )}
+        {errors.password && <p className="mt-1 text-xs text-danger">{errors.password.message}</p>}
       </div>
 
       {/* Confirm Password */}
       <div>
-        <label
-          htmlFor="signup-confirm"
-          className="block text-xs font-semibold text-foreground mb-1.5"
-        >
+        <label htmlFor="signup-confirm" className="block text-xs font-semibold text-foreground mb-1.5">
           Confirm password
         </label>
         <div className="relative">
           <input
             id="signup-confirm"
             type={showConfirm ? 'text' : 'password'}
-            autoComplete="new-password"
             placeholder="••••••••"
             className={`input-field pr-10 ${errors.confirmPassword ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`}
             {...register('confirmPassword', {
@@ -459,54 +382,30 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
               validate: (val) => val === passwordValue || 'Passwords do not match',
             })}
           />
-          <button
-            type="button"
-            onClick={() => setShowConfirm(!showConfirm)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={showConfirm ? 'Hide password' : 'Show password'}
-          >
+          <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
             {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-        {errors.confirmPassword && (
-          <p className="mt-1 text-xs text-danger">{errors.confirmPassword.message}</p>
-        )}
+        {errors.confirmPassword && <p className="mt-1 text-xs text-danger">{errors.confirmPassword.message}</p>}
       </div>
 
-      {/* Terms — CAMBIO CRÍTICO: Checkbox nativo accesible */}
+      {/* Terms Checkbox */}
       <div>
         <label htmlFor="signup-agree-terms" className="flex items-start gap-2.5 cursor-pointer group select-none">
-          <div className="relative mt-0.5 shrink-0 flex items-center justify-center">
-            <input 
-              id="signup-agree-terms"
-              type="checkbox" 
-              className="h-4 w-4 rounded border-2 border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary checked:bg-primary" 
-              {...register('agreeTerms', { required: 'You must agree to the terms' })} 
-            />
-          </div>
-          <span className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
-            I agree to the{' '}
-            <a href="#" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a href="#" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
-              Privacy Policy
-            </a>
-            . Community submissions are subject to moderation.
+          <input 
+            id="signup-agree-terms"
+            type="checkbox" 
+            className="h-4 w-4 rounded border-2 border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary mt-0.5" 
+            {...register('agreeTerms', { required: 'You must agree to the terms' })} 
+          />
+          <span className="text-xs text-muted-foreground leading-relaxed">
+            I agree to the <a href="#" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>Terms of Service</a> and <a href="#" className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>Privacy Policy</a>.
           </span>
         </label>
-        {errors.agreeTerms && (
-          <p className="mt-1 text-xs text-danger">{errors.agreeTerms.message}</p>
-        )}
+        {errors.agreeTerms && <p className="mt-1 text-xs text-danger">{errors.agreeTerms.message}</p>}
       </div>
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="btn-primary w-full justify-center py-3 mt-2"
-      >
+      <button type="submit" disabled={isSubmitting} className="btn-primary w-full justify-center py-3 mt-2">
         {isSubmitting ? (
           <>
             <Loader2 size={15} className="animate-spin" />
@@ -519,11 +418,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
 
       <p className="text-center text-xs text-muted-foreground pt-1">
         Already have an account?{' '}
-        <button
-          type="button"
-          onClick={onSwitch}
-          className="text-primary font-semibold hover:underline"
-        >
+        <button type="button" onClick={onSwitch} className="text-primary font-semibold hover:underline">
           Sign in
         </button>
       </p>
@@ -531,36 +426,19 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   );
 }
 
-/* ─── Main Page ─────────────────────────────────────────────── */
+/* ─── Main Auth Page ────────────────────────────────────────── */
 export default function AuthPageContent() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
 
   const features = [
-    {
-      icon: PlusCircle,
-      title: 'Submit distributions',
-      desc: 'Suggest new or updated distros for community review',
-    },
-    {
-      icon: Star,
-      title: 'Write reviews',
-      desc: 'Share your real-world experience with each distro',
-    },
-    {
-      icon: Search,
-      title: 'Save your searches',
-      desc: 'Bookmark distros and track your hardware profiles',
-    },
-    {
-      icon: Shield,
-      title: 'Community moderation',
-      desc: 'Help verify and improve distro accuracy as a trusted member',
-    },
+    { icon: PlusCircle, title: 'Submit distributions', desc: 'Suggest new or updated distros for community review' },
+    { icon: Star, title: 'Write reviews', desc: 'Share your real-world experience with each distro' },
+    { icon: Search, title: 'Save your searches', desc: 'Bookmark distros and track your hardware profiles' },
+    { icon: Shield, title: 'Community moderation', desc: 'Help verify and improve distro accuracy as a trusted member' },
   ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Minimal topbar */}
       <header className="border-b border-border bg-card">
         <div className="max-w-screen-2xl mx-auto px-4 lg:px-8 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -569,17 +447,13 @@ export default function AuthPageContent() {
               Linux<span className="text-primary">Match</span>
             </span>
           </Link>
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <Link href="/" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft size={13} />
             Back to Distro Finder
           </Link>
         </div>
       </header>
 
-      {/* Content */}
       <div className="flex-1 flex items-center justify-center p-4 py-10">
         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 bg-card rounded-2xl border border-border card-shadow-lg overflow-hidden">
           {/* Left panel */}
@@ -589,19 +463,12 @@ export default function AuthPageContent() {
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                   <Terminal size={16} className="text-white" />
                 </div>
-                <span className="text-white font-extrabold text-lg">
-                  Linux<span className="text-accent">Match</span>
-                </span>
+                <span className="text-white font-extrabold text-lg">Linux<span className="text-accent">Match</span></span>
               </div>
-
               <h2 className="text-2xl font-extrabold text-white mb-3 text-balance">
                 {mode === 'login' ? 'Welcome back to the Linux community' : 'Join the Linux compatibility database'}
               </h2>
-              <p className="text-sm text-white/60 leading-relaxed mb-8">
-                {mode === 'login' ? 'Sign in to submit distributions, write reviews, and help others find their perfect Linux distro.' : "Create a free account to contribute to the world's most comprehensive Linux compatibility database."}
-              </p>
-
-              <div className="space-y-4">
+              <div className="space-y-4 mt-8">
                 {features.map(({ icon: Icon, title, desc }) => (
                   <div key={`feature-${title}`} className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
@@ -615,59 +482,21 @@ export default function AuthPageContent() {
                 ))}
               </div>
             </div>
-
-            {/* Stats */}
-            <div className="mt-10 pt-6 border-t border-white/10 grid grid-cols-3 gap-4">
-              {[
-                { label: 'Distros', value: '120+' },
-                { label: 'Reviews', value: '14.2k' },
-                { label: 'Members', value: '8.7k' },
-              ].map(({ label, value }) => (
-                <div key={`stat-${label}`}>
-                  <p className="text-xl font-extrabold text-white tabular-nums">{value}</p>
-                  <p className="text-xs text-white/50">{label}</p>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Right panel */}
           <div className="p-8 lg:p-10 flex flex-col justify-center">
-            {/* Mode toggle */}
             <div className="flex items-center gap-1 p-1 bg-muted rounded-xl mb-7">
-              <button
-                onClick={() => setMode('login')}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  mode === 'login' ? 'bg-card text-foreground card-shadow' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
+              <button onClick={() => setMode('login')} className={`flex-1 py-2 text-sm font-semibold rounded-lg ${mode === 'login' ? 'bg-card text-foreground card-shadow' : 'text-muted-foreground'}`}>
                 Sign In
               </button>
-              <button
-                onClick={() => setMode('signup')}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  mode === 'signup' ? 'bg-card text-foreground card-shadow' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
+              <button onClick={() => setMode('signup')} className={`flex-1 py-2 text-sm font-semibold rounded-lg ${mode === 'signup' ? 'bg-card text-foreground card-shadow' : 'text-muted-foreground'}`}>
                 Create Account
               </button>
             </div>
 
-            <div className="mb-6">
-              <h1 className="text-xl font-extrabold text-foreground mb-1">
-                {mode === 'login' ? 'Sign in to LinuxMatch' : 'Create your account'}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {mode === 'login' ? 'Access your saved distros and community contributions' : 'Free forever — no credit card required'}
-              </p>
-            </div>
-
             <div className="animate-fade-in">
-              {mode === 'login' ? (
-                <LoginForm onSwitch={() => setMode('signup')} />
-              ) : (
-                <SignupForm onSwitch={() => setMode('login')} />
-              )}
+              {mode === 'login' ? <LoginForm onSwitch={() => setMode('signup')} /> : <SignupForm onSwitch={() => setMode('login')} />}
             </div>
           </div>
         </div>
