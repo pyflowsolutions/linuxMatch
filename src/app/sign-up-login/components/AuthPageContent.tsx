@@ -19,8 +19,7 @@ import {
 import { useForm } from 'react-hook-form';
 import AppLogo from '@/components/ui/AppLogo';
 import { toast } from 'sonner';
-import Icon from '@/components/ui/AppIcon';
-
+import { createClient } from '@/lib/supabase/client'; // 1. Importamos tu cliente de Supabase
 
 /* ─── Types ─────────────────────────────────────────────────── */
 interface LoginFormData {
@@ -36,13 +35,6 @@ interface SignupFormData {
   confirmPassword: string;
   agreeTerms: boolean;
 }
-
-/* ─── Mock credentials ─────────────────────────────────────── */
-// Backend integration point: replace mock auth with real API call
-const MOCK_CREDENTIALS = {
-  email: 'demo@linuxmatch.dev',
-  password: 'Tux$2026!',
-};
 
 /* ─── Copy Button ───────────────────────────────────────────── */
 function CopyButton({ value }: { value: string }) {
@@ -70,6 +62,7 @@ function CopyButton({ value }: { value: string }) {
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const supabase = createClient(); // Inicializamos el cliente
 
   const {
     register,
@@ -83,28 +76,28 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
-    // Backend integration point: POST /api/auth/login
-    await new Promise((r) => setTimeout(r, 1200));
+    
+    // INTEGRACIÓN CON SUPABASE: Login real
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
 
-    if (
-      data.email === MOCK_CREDENTIALS.email &&
-      data.password === MOCK_CREDENTIALS.password
-    ) {
-      toast.success('Welcome back! Redirecting to Distro Finder…', {
-        icon: '🐧',
-      });
+    if (error) {
+      setError('root', { message: error.message });
     } else {
-      setError('root', {
-        message:
-          'Invalid credentials — use the demo account below to sign in',
-      });
+      toast.success('Welcome back! Redirecting to Distro Finder…', { icon: '🐧' });
+      // Redirigir al dashboard o refrescar la página tras el login exitoso
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
     }
     setIsSubmitting(false);
   };
 
   const fillDemo = () => {
-    setValue('email', MOCK_CREDENTIALS.email);
-    setValue('password', MOCK_CREDENTIALS.password);
+    setValue('email', 'demo@linuxmatch.dev');
+    setValue('password', 'Tux$2026!');
   };
 
   return (
@@ -229,19 +222,19 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
             <div>
               <p className="text-2xs text-muted-foreground mb-0.5">Email</p>
               <p className="text-xs font-mono font-semibold text-foreground">
-                {MOCK_CREDENTIALS.email}
+                demo@linuxmatch.dev
               </p>
             </div>
-            <CopyButton value={MOCK_CREDENTIALS.email} />
+            <CopyButton value="demo@linuxmatch.dev" />
           </div>
           <div className="flex items-center justify-between bg-card rounded-lg px-3 py-2 border border-border">
             <div>
               <p className="text-2xs text-muted-foreground mb-0.5">Password</p>
               <p className="text-xs font-mono font-semibold text-foreground">
-                {MOCK_CREDENTIALS.password}
+                Tux$2026!
               </p>
             </div>
-            <CopyButton value={MOCK_CREDENTIALS.password} />
+            <CopyButton value="Tux$2026!" />
           </div>
         </div>
         <button
@@ -262,23 +255,42 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const supabase = createClient(); // Inicializamos el cliente
 
   const {
     register,
     handleSubmit,
     watch,
+    setError,
     formState: { errors },
   } = useForm<SignupFormData>();
 
   const passwordValue = watch('password', '');
 
-  const onSubmit = async (_data: SignupFormData) => {
+  const onSubmit = async (data: SignupFormData) => {
     setIsSubmitting(true);
-    // Backend integration point: POST /api/auth/register
-    await new Promise((r) => setTimeout(r, 1400));
+    
+    // INTEGRACIÓN CON SUPABASE: Registro real de usuario
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          display_name: data.fullName, // Guardamos el nombre completo en los metadatos
+        },
+      },
+    });
+
+    if (error) {
+      // Si hay un error (ej: el usuario ya existe), lo mostramos en la raíz del formulario
+      setError('root', { message: error.message });
+      toast.error(error.message);
+    } else {
+      setSuccess(true);
+      toast.success('Account created! Welcome to LinuxMatch 🐧');
+    }
+    
     setIsSubmitting(false);
-    setSuccess(true);
-    toast.success('Account created! Welcome to LinuxMatch 🐧');
   };
 
   if (success) {
@@ -289,7 +301,7 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
         </div>
         <h3 className="text-lg font-bold text-foreground mb-2">Account created!</h3>
         <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-          You can now submit distributions, write reviews, and save your favorite distros.
+          Please check your email to confirm your account. Then you can submit distributions, write reviews, and save your favorite distros.
         </p>
         <Link href="/" className="btn-primary">
           Go to Distro Finder
@@ -300,6 +312,14 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+      {/* Root error para Signup */}
+      {errors.root && (
+        <div className="flex items-start gap-2.5 p-3 bg-danger-light border border-danger/20 rounded-lg">
+          <Shield size={14} className="text-danger mt-0.5 shrink-0" />
+          <p className="text-xs text-danger">{errors.root.message}</p>
+        </div>
+      )}
+
       {/* Full Name */}
       <div>
         <label htmlFor="signup-name" className="block text-xs font-semibold text-foreground mb-1.5">
@@ -577,10 +597,10 @@ export default function AuthPageContent() {
               </div>
 
               <h2 className="text-2xl font-extrabold text-white mb-3 text-balance">
-                {mode === 'login' ?'Welcome back to the Linux community' :'Join the Linux compatibility database'}
+                {mode === 'login' ? 'Welcome back to the Linux community' : 'Join the Linux compatibility database'}
               </h2>
               <p className="text-sm text-white/60 leading-relaxed mb-8">
-                {mode === 'login' ?'Sign in to submit distributions, write reviews, and help others find their perfect Linux distro.' :'Create a free account to contribute to the world\'s most comprehensive Linux compatibility database.'}
+                {mode === 'login' ? 'Sign in to submit distributions, write reviews, and help others find their perfect Linux distro.' : "Create a free account to contribute to the world's most comprehensive Linux compatibility database."}
               </p>
 
               <div className="space-y-4">
@@ -620,7 +640,7 @@ export default function AuthPageContent() {
               <button
                 onClick={() => setMode('login')}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  mode === 'login' ?'bg-card text-foreground card-shadow' :'text-muted-foreground hover:text-foreground'
+                  mode === 'login' ? 'bg-card text-foreground card-shadow' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Sign In
@@ -628,7 +648,7 @@ export default function AuthPageContent() {
               <button
                 onClick={() => setMode('signup')}
                 className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  mode === 'signup' ?'bg-card text-foreground card-shadow' :'text-muted-foreground hover:text-foreground'
+                  mode === 'signup' ? 'bg-card text-foreground card-shadow' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Create Account
@@ -640,7 +660,7 @@ export default function AuthPageContent() {
                 {mode === 'login' ? 'Sign in to LinuxMatch' : 'Create your account'}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {mode === 'login' ?'Access your saved distros and community contributions' :'Free forever — no credit card required'}
+                {mode === 'login' ? 'Access your saved distros and community contributions' : 'Free forever — no credit card required'}
               </p>
             </div>
 
