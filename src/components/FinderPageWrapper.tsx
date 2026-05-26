@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import FilterSidebar from './FilterSidebar';
 import DistroResultsPanel from './DistroResultsPanel';
 import CompareBar from './CompareBar';
-import { useDistroFilter } from '@/hooks/useDistroFilter';
+import { useDistroFilter } from './useDistroFilter';
 import { distros as initialDistros } from './distroData';
 
 interface FinderPageWrapperProps {
