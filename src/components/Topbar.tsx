@@ -1,128 +1,101 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { User, LogOut, PlusCircle, ArrowLeft } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 import AppLogo from '@/components/ui/AppLogo';
-import { Search, Menu, X, LogIn, Terminal, PlusCircle,  } from 'lucide-react';
-
-const navItems = [
-  { label: 'Distro Finder', href: '/', icon: Search },
-  { label: 'Distro Detail', href: '/distro-detail', icon: Terminal },
-];
 
 export default function Topbar() {
-  const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
+
+  useEffect(() => {
+    // 1. Verificar si hay una sesión activa al cargar la página
+    const getActiveSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    getActiveSession();
+
+    // 2. Escuchar cambios de estado en tiempo real (Login, Logout, Registro confirmado)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    window.location.href = '/'; // Redirige a la home y limpia los estados
+  };
 
   return (
-    <>
-      <header className="sticky top-0 z-40 w-full bg-card/95 backdrop-blur-sm border-b border-border card-shadow">
-        <div className="max-w-screen-2xl mx-auto px-4 lg:px-8 xl:px-10 2xl:px-16">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 shrink-0">
-              <AppLogo size={32} />
-              <span className="font-extrabold text-lg tracking-tight text-foreground hidden sm:block">
-                Linux<span className="text-primary">Match</span>
-              </span>
-            </Link>
+    <header className="border-b border-border bg-card">
+      <div className="max-w-screen-2xl mx-auto px-4 lg:px-8 h-14 flex items-center justify-between">
+        
+        {/* Lado Izquierdo: Logo */}
+        <Link href="/" className="flex items-center gap-2">
+          <AppLogo size={28} />
+          <span className="font-extrabold text-base text-foreground">
+            Linux<span className="text-primary">Match</span>
+          </span>
+        </Link>
 
-            {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center gap-1">
-              {navItems?.map((item) => {
-                const isActive = pathname === item?.href;
-                return (
-                  <Link
-                    key={`nav-${item?.href}`}
-                    href={item?.href}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-sm font-semibold transition-colors duration-150 ${
-                      isActive
-                        ? 'bg-primary-light text-primary' :'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <item.icon size={15} />
-                    {item?.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* Right Actions */}
-            <div className="flex items-center gap-2">
-              <Link
-                href="/sign-up-login"
-                className="hidden sm:flex btn-outline text-xs px-3 py-2"
-              >
-                <LogIn size={14} />
-                Sign In
-              </Link>
-              <Link
-                href="/sign-up-login"
-                className="btn-primary text-xs px-3 py-2"
-              >
-                <PlusCircle size={14} />
-                Submit Distro
-              </Link>
-              <button
-                className="md:hidden btn-ghost p-2"
-                onClick={() => setMobileOpen(!mobileOpen)}
-                aria-label="Toggle menu"
-              >
-                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-      {/* Mobile Menu */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-30 md:hidden" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-foreground/20 backdrop-blur-sm" />
-          <div
-            className="absolute top-16 left-0 right-0 bg-card border-b border-border card-shadow-md animate-slide-up"
-            onClick={(e) => e?.stopPropagation()}
-          >
-            <nav className="px-4 py-3 space-y-1">
-              {navItems?.map((item) => {
-                const isActive = pathname === item?.href;
-                return (
-                  <Link
-                    key={`mobile-nav-${item?.href}`}
-                    href={item?.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
-                      isActive
-                        ? 'bg-primary-light text-primary' :'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <item.icon size={16} />
-                    {item?.label}
-                  </Link>
-                );
-              })}
-              <div className="pt-2 pb-1 border-t border-border flex flex-col gap-2">
-                <Link
-                  href="/sign-up-login"
-                  onClick={() => setMobileOpen(false)}
-                  className="btn-secondary text-sm justify-center"
-                >
-                  <LogIn size={15} />
-                  Sign In
-                </Link>
-                <Link
-                  href="/sign-up-login"
-                  onClick={() => setMobileOpen(false)}
-                  className="btn-primary text-sm justify-center"
-                >
-                  <PlusCircle size={15} />
-                  Submit Distro
-                </Link>
+        {/* Lado Derecho: Controles dinámicos de usuario */}
+        <div className="flex items-center gap-4">
+          {loading ? (
+            // Esqueleto animado mientras Supabase responde
+            <div className="h-8 w-20 animate-pulse bg-muted rounded-lg" />
+          ) : user ? (
+            /* ─── USUARIO LOGUEADO ─── */
+            <>
+              {/* Bloque con el Username */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted border border-border">
+                <User size={14} className="text-primary" />
+                <span className="text-xs font-semibold text-foreground">
+                  @{user.user_metadata?.username || 'user'}
+                </span>
               </div>
-            </nav>
-          </div>
+
+              {/* Botón de Logout */}
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-muted-foreground hover:text-danger rounded-lg transition-colors"
+                title="Sign Out"
+              >
+                <LogOut size={15} />
+              </button>
+            </>
+          ) : (
+            /* ─── INVITADO (NO LOGUEADO) ─── */
+            <Link
+              href="/sign-up-login"
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
+
+          {/* Botón para añadir distribuciones */}
+          <Link
+            href={user ? "/submit-distro" : "/sign-up-login"}
+            className="btn-primary py-1.5 px-4 text-xs flex items-center gap-1.5"
+          >
+            <PlusCircle size={14} />
+            Submit Distro
+          </Link>
         </div>
-      )}
-    </>
+
+      </div>
+    </header>
   );
 }
