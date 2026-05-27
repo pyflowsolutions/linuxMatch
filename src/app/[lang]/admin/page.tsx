@@ -13,6 +13,53 @@ interface ManagedUser {
   role: 'admin' | 'user';
 }
 
+// Interfaz para la función de automatización
+interface TechnicalData {
+  minRam: number;
+  minStorage: number;
+  minCpuCores: number;
+  releaseModel: string;
+  basedOn: string;
+}
+
+// FUNCIÓN DE AUTOMATIZACIÓN TÉCNICA
+function calculateAutomatedMetrics(data: TechnicalData) {
+  // 1. EFICIENCIA DE HARDWARE (A menores requisitos, mayor eficiencia)
+  let hardwareEfficiency = 100;
+  hardwareEfficiency -= (data.minRam - 1) * 10; // Penaliza 10 puntos por cada GB de RAM extra sobre 1GB
+  hardwareEfficiency -= (data.minCpuCores - 1) * 5; // Penaliza 5 puntos por cada Core de CPU extra
+  hardwareEfficiency = Math.max(40, Math.min(98, hardwareEfficiency)); // Clamping seguro entre 40 y 98
+
+  // 2. FACILIDAD DE USO (Basado en la herencia de la distribución)
+  let easeOfUse = 70; // Base neutral
+  const baseLower = (data.basedOn || '').toLowerCase();
+  if (baseLower.includes('ubuntu') || baseLower.includes('mint') || baseLower.includes('pop')) easeOfUse = 90;
+  else if (baseLower.includes('debian') || baseLower.includes('fedora')) easeOfUse = 80;
+  else if (baseLower.includes('arch') || baseLower.includes('gentoo')) easeOfUse = 45; // Curva de aprendizaje empinada
+
+  // 3. ESTABILIDAD (Ciclo de lanzamiento y robustez de la base)
+  let stabilityScore = data.releaseModel === 'LTS' ? 92 : 80;
+  if (baseLower.includes('debian')) stabilityScore += 5; // Debian estable es una roca
+  stabilityScore = Math.max(50, Math.min(98, stabilityScore));
+
+  // 4. COMPATIBILIDAD GLOBAL
+  let compatibilityScore = 85;
+  if (baseLower.includes('ubuntu') || baseLower.includes('debian')) compatibilityScore = 96; // Ecosistema masivo de paquetes .deb
+
+  // 5. COMUNIDAD (Puntuación de 0.0 a 5.0)
+  let communityRating = 4.2;
+  if (baseLower.includes('ubuntu') || baseLower.includes('arch')) communityRating = 4.8;
+  else if (baseLower.includes('debian')) communityRating = 4.6;
+
+  return {
+    easeOfUse,
+    hardwareEfficiency,
+    stabilityScore,
+    compatibilityScore,
+    communityRating
+  };
+}
+
 export default function AdminDashboard({ params }: { params: { lang: string } }) {
   const lang = params.lang;
   const router = useRouter();
@@ -246,10 +293,10 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL: ESTRUCTURA INTERCAMBIADA SEGÚN LA PESTAÑA */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* ================= COLUMNA ANCHA (IZQUIERDA - lg:col-span-2) ================= */}
+        {/* ================= COLUMNA ANCHA (IZQUIERDA - Formulario Expandido) ================= */}
         <div className="lg:col-span-2 space-y-4">
           {loadingData ? (
             <div className="space-y-3 animate-pulse">
@@ -258,7 +305,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
             </div>
           ) : (
             <>
-              {/* CASO A: Pestaña Usuarios -> Lista de usuarios (Ancha por defecto) */}
+              {/* Pestaña Usuarios */}
               {activeTab === 'users' && (
                 <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-border bg-muted/10">
@@ -304,7 +351,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                 </div>
               )}
 
-              {/* CASO B: Pestaña Distribuciones -> FORMULARIO COMPLETO (¡Ahora a la izquierda y bien espacioso!) */}
+              {/* Pestaña Distribuciones -> Formulario de Configuración Técnica */}
               {activeTab === 'distros' && (
                 <>
                   {editingDistro ? (
@@ -324,10 +371,8 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                         )}
                       </div>
                       
-                      {/* Grid interno de dos columnas para optimizar el espacio del formulario */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        
-                        {/* ─── BLOQUE 1: IDENTIDAD BÁSICA ─── */}
+                        {/* BLOQUE 1: IDENTIDAD BÁSICA */}
                         <div className="space-y-3">
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-muted-foreground uppercase">Nombre de la Distribución</label>
@@ -374,7 +419,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                           </div>
                         </div>
 
-                        {/* ─── BLOQUE 2: METADATOS TÉCNICOS ─── */}
+                        {/* BLOQUE 2: METADATOS TÉCNICOS */}
                         <div className="bg-muted/20 p-3 rounded-xl border border-border/60 space-y-3">
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
@@ -412,7 +457,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                         </div>
                       </div>
 
-                      {/* ─── BLOQUE 3: DESCRIPCIONES EXPANDIDAS (A doble columna completa) ─── */}
+                      {/* BLOQUE 3: DESCRIPCIONES EXPANDIDAS */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-3 rounded-xl border border-border/40">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-muted-foreground uppercase">Descripción Completa (ES)</label>
@@ -435,7 +480,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* ─── BLOQUE 4: REQUISITOS DE HARDWARE ─── */}
+                        {/* BLOQUE 4: REQUISITOS DE HARDWARE */}
                         <div className="grid grid-cols-3 gap-2">
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-muted-foreground uppercase">RAM Mín. (GB)</label>
@@ -466,7 +511,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                           </div>
                         </div>
 
-                        {/* ─── BLOQUE 5: ARQUITECTURA Y CICLO ─── */}
+                        {/* BLOQUE 5: ARQUITECTURA Y CICLO */}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-muted-foreground uppercase">Ciclo Lanzamiento</label>
@@ -495,9 +540,34 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                         </div>
                       </div>
 
-                      {/* ─── BLOQUE 6: MÉTRICAS DEL GRÁFICO DE RADAR ─── */}
+                      {/* BLOQUE 6: MÉTRICAS DEL GRÁFICO DE RADAR AUTOMATIZADAS */}
                       <div className="bg-muted/30 p-4 rounded-xl border border-border/40 space-y-3">
-                        <h4 className="text-[10px] font-black text-foreground/70 uppercase tracking-wider">Puntuaciones de Rendimiento y Feedback (0 - 100)</h4>
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-[10px] font-black text-foreground/70 uppercase tracking-wider">
+                            Puntuaciones de Rendimiento y Feedback (0 - 100)
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const autoMetrics = calculateAutomatedMetrics({
+                                minRam: editingDistro.minRam || 2,
+                                minStorage: editingDistro.minStorage || 20,
+                                minCpuCores: editingDistro.minCpuCores || 2,
+                                releaseModel: editingDistro.releaseModel || 'LTS',
+                                basedOn: editingDistro.basedOn || 'Independent'
+                              });
+                              
+                              setEditingDistro(prev => ({
+                                ...prev,
+                                ...autoMetrics
+                              }));
+                            }}
+                            className="px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-bold rounded-lg transition-colors shadow-sm"
+                          >
+                            ⚡ Auto-calcular por Hardware
+                          </button>
+                        </div>
+
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-muted-foreground uppercase">Facilidad de Uso</label>
@@ -565,7 +635,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                     </form>
                   ) : (
                     <div className="bg-card border border-border border-dashed rounded-2xl p-12 text-center text-xs text-muted-foreground h-full flex flex-col justify-center items-center">
-                      <Disc size={32} className="text-muted-foreground/40 mb-2 animate-pulse" />
+                      <Disc size={32} className="text-muted-foreground/40 mb-2" />
                       Selecciona una distribución del catálogo lateral o pulsa en "Nueva Ficha" para empezar a estructurar los campos técnicos.
                     </div>
                   )}
@@ -575,14 +645,13 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
           )}
         </div>
 
-        {/* ================= COLUMNA ESTRECHA (DERECHA - lg:col-span-1) ================= */}
+        {/* ================= COLUMNA ESTRECHA (DERECHA - Catálogo de Fichas) ================= */}
         <div className="lg:col-span-1">
-          {/* Si estamos en la pestaña de distribuciones, aquí se renderizan las "Fichas Tecnológicas" existentes */}
           {activeTab === 'distros' ? (
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
               <div className="p-4 border-b border-border bg-muted/10 flex justify-between items-center">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {lang === 'es' ? 'Fichas Tecnológicas' : 'Technological Sheets'}
+                  Fichas Tecnológicas
                 </h3>
                 <button
                   onClick={() => setEditingDistro({
@@ -597,7 +666,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-primary-foreground font-bold text-[11px] rounded-xl hover:opacity-90 transition-opacity"
                 >
                   <Plus size={12} />
-                  {lang === 'es' ? 'Nueva Ficha' : 'New Sheet'}
+                  Nueva Ficha
                 </button>
               </div>
               <div className="divide-y divide-border max-h-[70vh] overflow-y-auto scrollbar-thin">
@@ -616,6 +685,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setEditingDistro(d)}
                         className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors shrink-0"
                       >
@@ -627,11 +697,8 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
               </div>
             </div>
           ) : (
-            // Mensaje de contexto para cuando se visualiza la pestaña de Usuarios
             <div className="bg-card border border-border border-dashed rounded-2xl p-6 text-center text-xs text-muted-foreground">
-              {lang === 'es' 
-                ? 'Usa el selector superior para cambiar al catálogo de distribuciones y gestionar las especificaciones de hardware.' 
-                : 'Use the top selector to switch to the distributions catalog and manage hardware specifications.'}
+              Usa el selector superior para cambiar al catálogo de distribuciones y gestionar las especificaciones de hardware.
             </div>
           )}
         </div>
