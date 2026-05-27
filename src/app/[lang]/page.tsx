@@ -27,35 +27,45 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
     setIsMounted(true);
   }, []);
 
-  // CARGA DINÁMICA DESDE SUPABASE
-  useEffect(() => {
-    async function loadActiveDistros() {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('distributions')
-          .select(`
-            id, name, tagline, logoInitials:logo_initials, logoColor:logo_color,
-            minRam:min_ram, minStorage:min_storage, minCpuCores:min_cpu_cores,
-            releaseModel:release_model, cpuArchitecture:cpu_architecture,
-            useCases:use_cases, descriptionEs:description_es, descriptionEn:description_en,
-            latestVersion:latest_version, releaseDate:release_date, basedOn:based_on,
-            easeOfUse:ease_of_use, hardwareEfficiency:hardware_efficiency,
-            stabilityScore:stability_score, compatibilityScore:compatibility_score,
-            communityRating:community_rating
-          `);
+ // REEMPLAZA EL CARGADOR DE SUPABASE EN SU PAGE.TSX POR ESTE:
+useEffect(() => {
+  async function loadActiveDistros() {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('distributions')
+        .select(`
+          id, name, tagline, logoInitials:logo_initials, logoColor:logo_color,
+          minRam:min_ram, minStorage:min_storage, minCpuCores:min_cpu_cores,
+          releaseModel:release_model, cpuArchitecture:cpu_architecture,
+          useCases:use_cases, descriptionEs:description_es, descriptionEn:description_en,
+          latestVersion:latest_version, releaseDate:release_date, basedOn:based_on,
+          easeOfUse:ease_of_use, hardwareEfficiency:hardware_efficiency,
+          stabilityScore:stability_score, compatibilityScore:compatibility_score,
+          communityRating:community_rating,
+          difficulty // 👈 ASEGÚRATE DE TRAER ESTA COLUMNA DE LA BASE DE DATOS
+        `);
 
-        if (!error && data) {
-          setDistros(data as Distro[]);
-        }
-      } catch (err) {
-        console.error("Error al sincronizar el catálogo dinámico:", err);
-      } finally {
-        setLoading(false);
+      if (!error && data) {
+        // Mapeamos de forma segura para que useCase y difficulty nunca sean undefined
+        const normalizedData = data.map((item: any) => ({
+          ...item,
+          // Si tu base de datos guarda 'use_cases' como array, extraemos el primero
+          useCase: Array.isArray(item.useCases) ? item.useCases[0] : (item.useCases || 'general'),
+          // Forzamos un fallback seguro para difficulty si viene vacío de la BD
+          difficulty: item.difficulty || 'beginner'
+        }));
+
+        setDistros(normalizedData as Distro[]);
       }
+    } catch (err) {
+      console.error("Error al sincronizar el catálogo dinámico:", err);
+    } finally {
+      setLoading(false);
     }
-    loadActiveDistros();
-  }, [supabase]);
+  }
+  loadActiveDistros();
+}, [supabase]);
 
   // LÓGICA DE FILTRADO
   const filteredDistros = distros.filter(distro => {
