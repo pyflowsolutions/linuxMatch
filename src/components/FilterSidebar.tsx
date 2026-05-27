@@ -117,9 +117,12 @@ export default function FilterSidebar({ filters, setFilters, dict, lang }: Filte
             {dict?.ram || t.minRam}
           </span>
           <div className="space-y-1">
+           // 🛡️ Cambia la línea de renderizado de RAM disponible por esta protección:
             <div className="flex justify-between text-xs font-medium">
-              <span className="text-muted-foreground">{t.availableRam}</span>
-              <span className="font-mono font-bold text-primary">{formatRamLabel(filters.ram)}</span>
+            <span className="text-muted-foreground">{t.availableRam}</span>
+            <span className="font-mono font-bold text-primary">
+            {formatRamLabel(filters?.ram ?? 0)}
+            </span>
             </div>
             <input
               type="range"
