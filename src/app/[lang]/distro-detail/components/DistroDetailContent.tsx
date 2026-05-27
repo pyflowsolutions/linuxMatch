@@ -59,29 +59,30 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [bookmarked, setBookmarked] = useState(false);
   
-  // Estados para la carga asíncrona de la base de datos
   const [distro, setDistro] = useState<Distro | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Evitamos fallos de hidratación asíncrona / removeChild en Next.js
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     async function loadDistroDetails() {
       try {
         setLoading(true);
-
-        // 1. Traemos los datos de Supabase
         const { data, error } = await supabase.from('distributions').select('*');
 
         if (error) throw error;
 
-        // 2. Buscamos el registro con un triple control de coincidencia inteligente
+        // Triple lógica de matching tolerante a variaciones de URL y caracteres especiales (!)
         const matchingRecord = data?.find((item) => {
           const dbIdClean = item.id.trim().toLowerCase();
           const paramIdClean = distroId.trim().toLowerCase();
 
-          // Intento A: Coincidencia exacta (ej: "pop!_os" === "pop!_os")
           if (dbIdClean === paramIdClean) return true;
 
-          // Intento B: Limpiando caracteres raros por si la URL viene sanitizada (ej: "pop_os" === "pop_os")
           const dbIdNoSpecial = dbIdClean.replace(/[^a-z0-9_-]/g, '');
           const paramIdNoSpecial = paramIdClean.replace(/[^a-z0-9_-]/g, '');
           if (dbIdNoSpecial === paramIdNoSpecial) return true;
@@ -90,7 +91,6 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
         });
 
         if (matchingRecord) {
-          // 3. Mapeo seguro con fallback total para evitar crasheos de tipos o campos nulos
           const mappedDistro: Distro = {
             id: matchingRecord.id,
             name: matchingRecord.name,
@@ -102,10 +102,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             minCpuCores: matchingRecord.min_cpu_cores || 2,
             releaseModel: matchingRecord.release_model || 'LTS',
             cpuArchitecture: matchingRecord.cpu_architecture || 'AMD64 / x86-64',
-            
-            // Garantizamos que use_cases sea siempre un array para que el .map() no rompa
             useCases: Array.isArray(matchingRecord.use_cases) ? matchingRecord.use_cases : ['General'],
-            
             descriptionEs: matchingRecord.description_es || matchingRecord.tagline || '',
             descriptionEn: matchingRecord.description_en || matchingRecord.tagline || '',
             latestVersion: matchingRecord.latest_version || '1.0.0',
@@ -137,8 +134,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
     }
   }, [distroId, supabase]);
 
-  // Spinner de carga intermedio
-  if (loading) {
+  if (!isMounted || loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
         <div className="h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -147,7 +143,6 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
     );
   }
 
-  // Pantalla de error si el ID no existe en Supabase tras los reintentos
   if (!distro) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
@@ -255,21 +250,22 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             </div>
           </div>
 
-          {/* CASOS DE USO CORREGIDOS (Control toLowerCase + Fallback) */}
+          {/* CONTROL ULTRA-SEGURO EVITA ELEMENTOS UNDEFINED EN MAP */}
           <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-border">
             {distro.useCases?.map((uc) => {
+              if (!uc) return null;
               const key = uc.toLowerCase();
               const cfg = USE_CASE_CONFIG[key] || USE_CASE_CONFIG[uc] || { 
-                bg: 'bg-muted/40', 
-                color: 'text-muted-foreground', 
+                bg: 'bg-emerald-500/10', 
+                color: 'text-emerald-500', 
                 label: uc 
               };
               return (
                 <span
                   key={`hero-uc-${uc}`}
-                  className={`px-2.5 py-1 rounded-md font-medium text-xs ${cfg.bg} ${cfg.color}`}
+                  className={`px-2.5 py-1 rounded-md font-medium text-xs ${cfg.bg || 'bg-muted'} ${cfg.color || 'text-muted-foreground'}`}
                 >
-                  {cfg.label}
+                  {cfg.label || uc}
                 </span>
               );
             })}
@@ -331,7 +327,6 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
   );
 }
 
-/* ─── Overview Tab Sub-component ─────────────────────────── */
 function OverviewTab({ DISTRO }: { DISTRO: Distro }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -348,7 +343,6 @@ function OverviewTab({ DISTRO }: { DISTRO: Distro }) {
         </div>
       </div>
 
-      {/* Sidebar de atributos */}
       <div className="space-y-4">
         <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
           <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-4">Attribute Scores</h3>
@@ -378,7 +372,6 @@ function OverviewTab({ DISTRO }: { DISTRO: Distro }) {
   );
 }
 
-/* ─── Specifications Tab Sub-component ────────────────────── */
 function SpecificationsTab({ DISTRO }: { DISTRO: Distro }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -412,7 +405,6 @@ function SpecificationsTab({ DISTRO }: { DISTRO: Distro }) {
   );
 }
 
-/* ─── Reviews Tab Sub-component ──────────────────────────── */
 function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
   const [helpfulClicked, setHelpfulClicked] = useState<string[]>([]);
   const ratingDistribution = [
@@ -446,7 +438,6 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
         <RatingBreakdownChart data={ratingDistribution} />
       </div>
 
-      {/* REVIEWS CON MAPEO SEGURO Y PROTECCIÓN ANTE STRINGS VACÍOS */}
       <div className="lg:col-span-2 space-y-4">
         {!DISTRO.reviews || DISTRO.reviews.length === 0 ? (
           <div className="text-center p-8 bg-card rounded-xl border border-border text-xs text-muted-foreground">
@@ -454,11 +445,12 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
           </div>
         ) : (
           DISTRO.reviews.map((review) => {
+            if (!review) return null;
             const reviewKey = review.useCase?.toLowerCase() || '';
             const reviewCfg = USE_CASE_CONFIG[reviewKey] || USE_CASE_CONFIG[review.useCase] || { 
               bg: 'bg-muted', 
               color: 'text-foreground', 
-              label: review.useCase 
+              label: review.useCase || 'General' 
             };
 
             return (
@@ -468,7 +460,7 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
                     <span className="text-xs font-bold text-foreground">{review.author}</span>
                     {review.verified && <span className="text-[10px] bg-success/10 text-success font-black px-1.5 py-0.5 rounded flex items-center gap-0.5"><CheckCircle size={10}/> Verified</span>}
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${reviewCfg.bg} ${reviewCfg.color}`}>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${reviewCfg.bg || 'bg-muted'} ${reviewCfg.color || 'text-foreground'}`}>
                     {reviewCfg.label}
                   </span>
                 </div>
@@ -480,7 +472,7 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
                     className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${helpfulClicked.includes(review.id) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
                   >
                     <ThumbsUp size={12} />
-                    {review.helpful + (helpfulClicked.includes(review.id) ? 1 : 0)}
+                    {Number(review.helpful || 0) + (helpfulClicked.includes(review.id) ? 1 : 0)}
                   </button>
                 </div>
               </div>
