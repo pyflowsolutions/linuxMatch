@@ -5,14 +5,22 @@ import { createClient } from '@/lib/supabase/client';
 import { Distro } from '@/components/distroData';
 // Importa tus componentes de Filtros o Tarjetas aquí...
 
-export default function HomeSearchPage() {
+interface HomeSearchPageProps {
+  params: {
+    lang: string;
+  };
+}
+
+export default function HomeSearchPage({ params }: HomeSearchPageProps) {
+  // Extraemos lang de forma segura desde las propiedades de la página de Next.js
+  const lang = params?.lang || 'es'; 
   const supabase = createClient();
   
   // Estado dinámico para almacenar SÓLO las distribuciones reales de la BD
   const [distros, setDistros] = useState<Distro[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados de filtros (mantén los que ya tengas configurados)
+  // Estados de filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [ramFilter, setRamFilter] = useState(16);
   // ... resto de tus estados de filtros
@@ -49,8 +57,11 @@ export default function HomeSearchPage() {
 
   // LÓGICA DE FILTRADO (Aplica sobre el estado 'distros' que viene de Supabase)
   const filteredDistros = distros.filter(distro => {
-    const matchesSearch = distro.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          distro.tagline.toLowerCase().includes(searchQuery.toLowerCase());
+    const distroName = distro.name?.toLowerCase() || '';
+    const distroTagline = distro.tagline?.toLowerCase() || '';
+    const query = searchQuery.toLowerCase();
+
+    const matchesSearch = distroName.includes(query) || distroTagline.includes(query);
     
     // Filtro de RAM: Mostrar solo si la distro requiere MENOS o IGUAL RAM de la disponible
     const matchesRam = (distro.minRam || 0) <= ramFilter;
@@ -74,7 +85,7 @@ export default function HomeSearchPage() {
         value={searchQuery} 
         onChange={(e) => setSearchQuery(e.target.value)} 
         placeholder="Busca tu distribución Linux ideal..."
-        className="... tus clases de diseño ..."
+        className="w-full p-3 rounded-xl border border-border bg-background" // Clases base sugeridas
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
@@ -105,12 +116,12 @@ export default function HomeSearchPage() {
 
                 {/* Especificaciones Técnicas cortas */}
                 <div className="flex gap-4 text-[11px] text-muted-foreground border-t border-border/45 pt-3">
-                  <span>📦 {distro.minRam}GB RAM</span>
-                  <span>⚙️ {distro.minCpuCores} CPU</span>
-                  <span>💾 {distro.minStorage}GB</span>
+                  <span>📦 {distro.minRam || 0}GB RAM</span>
+                  <span>⚙️ {distro.minCpuCores || 0} CPU</span>
+                  <span>💾 {distro.minStorage || 0}GB</span>
                 </div>
 
-                {/* Enlace dinámico usando el ID real de Supabase */}
+                {/* Enlace dinámico usando el ID real de Supabase y el lang inyectado */}
                 <div className="text-right pt-2">
                   <a 
                     href={`/${lang}/distro-detail?id=${distro.id}`}
