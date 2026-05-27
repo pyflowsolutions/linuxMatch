@@ -68,22 +68,29 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
       try {
         setLoading(true);
 
-        // 1. Limpiamos caracteres conflictivos de la URL (como el signo !)
-        const cleanId = distroId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-
-        // 2. Consultamos directamente el catálogo real de Supabase
+        // 1. Traemos los datos de Supabase
         const { data, error } = await supabase.from('distributions').select('*');
 
         if (error) throw error;
 
-        // 3. Buscamos el registro comparando de forma limpia e insensible a mayúsculas
+        // 2. Buscamos el registro con un triple control de coincidencia inteligente
         const matchingRecord = data?.find((item) => {
-          const cleanDbId = item.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-          return cleanDbId === cleanId || item.id.trim().toLowerCase() === distroId.trim().toLowerCase();
+          const dbIdClean = item.id.trim().toLowerCase();
+          const paramIdClean = distroId.trim().toLowerCase();
+
+          // Intento A: Coincidencia exacta (ej: "pop!_os" === "pop!_os")
+          if (dbIdClean === paramIdClean) return true;
+
+          // Intento B: Limpiando caracteres raros por si la URL viene sanitizada (ej: "pop_os" === "pop_os")
+          const dbIdNoSpecial = dbIdClean.replace(/[^a-z0-9_-]/g, '');
+          const paramIdNoSpecial = paramIdClean.replace(/[^a-z0-9_-]/g, '');
+          if (dbIdNoSpecial === paramIdNoSpecial) return true;
+
+          return false;
         });
 
         if (matchingRecord) {
-          // 4. Transformamos snake_case a camelCase asegurando valores por defecto si viene un null
+          // 3. Mapeo seguro con fallback total para evitar crasheos de tipos o campos nulos
           const mappedDistro: Distro = {
             id: matchingRecord.id,
             name: matchingRecord.name,
@@ -95,7 +102,10 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             minCpuCores: matchingRecord.min_cpu_cores || 2,
             releaseModel: matchingRecord.release_model || 'LTS',
             cpuArchitecture: matchingRecord.cpu_architecture || 'AMD64 / x86-64',
-            useCases: matchingRecord.use_cases || ['General'],
+            
+            // Garantizamos que use_cases sea siempre un array para que el .map() no rompa
+            useCases: Array.isArray(matchingRecord.use_cases) ? matchingRecord.use_cases : ['General'],
+            
             descriptionEs: matchingRecord.description_es || matchingRecord.tagline || '',
             descriptionEn: matchingRecord.description_en || matchingRecord.tagline || '',
             latestVersion: matchingRecord.latest_version || '1.0.0',
@@ -137,7 +147,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
     );
   }
 
-  // Pantalla de error si el ID no existe en Supabase
+  // Pantalla de error si el ID no existe en Supabase tras los reintentos
   if (!distro) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
@@ -245,7 +255,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             </div>
           </div>
 
-          {/* CASOS DE USO CORREGIDOS (Blindaje toLowerCase) */}
+          {/* CASOS DE USO CORREGIDOS (Control toLowerCase + Fallback) */}
           <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-border">
             {distro.useCases?.map((uc) => {
               const key = uc.toLowerCase();
@@ -436,7 +446,7 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
         <RatingBreakdownChart data={ratingDistribution} />
       </div>
 
-      {/* REVIEWS CON MAPEO SEGURO */}
+      {/* REVIEWS CON MAPEO SEGURO Y PROTECCIÓN ANTE STRINGS VACÍOS */}
       <div className="lg:col-span-2 space-y-4">
         {!DISTRO.reviews || DISTRO.reviews.length === 0 ? (
           <div className="text-center p-8 bg-card rounded-xl border border-border text-xs text-muted-foreground">
