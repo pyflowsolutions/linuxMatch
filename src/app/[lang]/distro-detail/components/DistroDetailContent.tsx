@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client'; // <-- Importamos el cliente de Supabase
+import { createClient } from '@/lib/supabase/client';
 import { USE_CASE_CONFIG, Distro } from '@/components/distroData';
 import {
   ArrowLeft,
@@ -59,7 +59,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [bookmarked, setBookmarked] = useState(false);
   
-  // Estados para controlar la carga asíncrona de Supabase
+  // Estados para la carga asíncrona de la base de datos
   const [distro, setDistro] = useState<Distro | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -68,22 +68,22 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
       try {
         setLoading(true);
 
-        // 1. Normalizamos el ID de la URL eliminando caracteres especiales conflictivos (como el !)
+        // 1. Limpiamos caracteres conflictivos de la URL (como el signo !)
         const cleanId = distroId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
 
-        // 2. Traemos las distribuciones directamente desde la base de datos
+        // 2. Consultamos directamente el catálogo real de Supabase
         const { data, error } = await supabase.from('distributions').select('*');
 
         if (error) throw error;
 
-        // 3. Evaluamos coincidencias tanto con el ID limpio como con la cadena exacta
+        // 3. Buscamos el registro comparando de forma limpia e insensible a mayúsculas
         const matchingRecord = data?.find((item) => {
           const cleanDbId = item.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
           return cleanDbId === cleanId || item.id.trim().toLowerCase() === distroId.trim().toLowerCase();
         });
 
         if (matchingRecord) {
-          // 4. Adaptamos el formato snake_case de Supabase al camelCase esperado por tus gráficos y componentes
+          // 4. Transformamos snake_case a camelCase asegurando valores por defecto si viene un null
           const mappedDistro: Distro = {
             id: matchingRecord.id,
             name: matchingRecord.name,
@@ -107,7 +107,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             easeOfUse: matchingRecord.ease_of_use || 80,
             hardwareEfficiency: matchingRecord.hardware_efficiency || 80,
             stabilityScore: matchingRecord.stability_score || 80,
-            isPopular: matchingRecord.review_count > 50, // Flag dinámico basado en popularidad
+            isPopular: (matchingRecord.review_count || 0) > 50,
             reviews: matchingRecord.reviews || []
           };
           setDistro(mappedDistro);
@@ -127,7 +127,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
     }
   }, [distroId, supabase]);
 
-  // Pantalla de carga estética mientras consulta Supabase
+  // Spinner de carga intermedio
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
@@ -137,7 +137,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
     );
   }
 
-  // Cláusula de salvaguarda reactiva si el ID no existe en Supabase
+  // Pantalla de error si el ID no existe en Supabase
   if (!distro) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
@@ -245,9 +245,15 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             </div>
           </div>
 
+          {/* CASOS DE USO CORREGIDOS (Blindaje toLowerCase) */}
           <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-border">
             {distro.useCases?.map((uc) => {
-              const cfg = USE_CASE_CONFIG[uc] || { bg: 'bg-muted', color: 'text-muted-foreground', label: uc };
+              const key = uc.toLowerCase();
+              const cfg = USE_CASE_CONFIG[key] || USE_CASE_CONFIG[uc] || { 
+                bg: 'bg-muted/40', 
+                color: 'text-muted-foreground', 
+                label: uc 
+              };
               return (
                 <span
                   key={`hero-uc-${uc}`}
@@ -430,36 +436,46 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
         <RatingBreakdownChart data={ratingDistribution} />
       </div>
 
+      {/* REVIEWS CON MAPEO SEGURO */}
       <div className="lg:col-span-2 space-y-4">
-        {DISTRO.reviews && DISTRO.reviews.length === 0 ? (
+        {!DISTRO.reviews || DISTRO.reviews.length === 0 ? (
           <div className="text-center p-8 bg-card rounded-xl border border-border text-xs text-muted-foreground">
             No reviews submitted yet for this distribution.
           </div>
         ) : (
-          DISTRO.reviews?.map((review) => (
-            <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
-              <div className="flex items-center justify-between dynamic-review-header mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-foreground">{review.author}</span>
-                  {review.verified && <span className="text-[10px] bg-success/10 text-success font-black px-1.5 py-0.5 rounded flex items-center gap-0.5"><CheckCircle size={10}/> Verified</span>}
+          DISTRO.reviews.map((review) => {
+            const reviewKey = review.useCase?.toLowerCase() || '';
+            const reviewCfg = USE_CASE_CONFIG[reviewKey] || USE_CASE_CONFIG[review.useCase] || { 
+              bg: 'bg-muted', 
+              color: 'text-foreground', 
+              label: review.useCase 
+            };
+
+            return (
+              <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
+                <div className="flex items-center justify-between dynamic-review-header mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-foreground">{review.author}</span>
+                    {review.verified && <span className="text-[10px] bg-success/10 text-success font-black px-1.5 py-0.5 rounded flex items-center gap-0.5"><CheckCircle size={10}/> Verified</span>}
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${reviewCfg.bg} ${reviewCfg.color}`}>
+                    {reviewCfg.label}
+                  </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${USE_CASE_CONFIG[review.useCase]?.bg || 'bg-muted'} ${USE_CASE_CONFIG[review.useCase]?.color || 'text-foreground'}`}>
-                  {USE_CASE_CONFIG[review.useCase]?.label || review.useCase}
-                </span>
+                <h4 className="text-xs font-bold text-foreground mb-1">{review.title}</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">{review.body}</p>
+                <div className="flex items-center gap-2 pt-3 border-t border-border">
+                  <button 
+                    onClick={() => setHelpfulClicked((prev) => prev.includes(review.id) ? prev.filter((id) => id !== review.id) : [...prev, review.id])}
+                    className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${helpfulClicked.includes(review.id) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+                  >
+                    <ThumbsUp size={12} />
+                    {review.helpful + (helpfulClicked.includes(review.id) ? 1 : 0)}
+                  </button>
+                </div>
               </div>
-              <h4 className="text-xs font-bold text-foreground mb-1">{review.title}</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-4">{review.body}</p>
-              <div className="flex items-center gap-2 pt-3 border-t border-border">
-                <button 
-                  onClick={() => setHelpfulClicked((prev) => prev.includes(review.id) ? prev.filter((id) => id !== review.id) : [...prev, review.id])}
-                  className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${helpfulClicked.includes(review.id) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
-                >
-                  <ThumbsUp size={12} />
-                  {review.helpful + (helpfulClicked.includes(review.id) ? 1 : 0)}
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
