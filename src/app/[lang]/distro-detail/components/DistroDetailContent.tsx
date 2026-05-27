@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client'; // <-- Importamos el cliente de Supabase
+import { USE_CASE_CONFIG, Distro } from '@/components/distroData';
 import {
   ArrowLeft,
   Download,
@@ -22,8 +24,6 @@ import {
   CheckCircle,
 } from 'lucide-react';
 
-// Corregido el import con alias absoluto
-import { ALL_DISTROS, USE_CASE_CONFIG, Distro } from '@/components/distroData';
 import Badge from '@/components/ui/Badge';
 import DistroRadarChart from './DistroRadarChart';
 import RatingBreakdownChart from './RatingBreakdownChart';
@@ -35,10 +35,6 @@ interface DistroDetailContentProps {
 
 const TABS = ['Overview', 'Specifications', 'Reviews', 'Versions', 'Similar'] as const;
 type Tab = (typeof TABS)[number];
-
-function ramLabel(mb: number) {
-  return mb >= 1024 ? `${mb / 1024}GB` : `${mb}MB`;
-}
 
 function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
   return (
@@ -59,15 +55,90 @@ function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
 }
 
 export default function DistroDetailContent({ distroId, lang }: DistroDetailContentProps) {
+  const supabase = createClient();
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [bookmarked, setBookmarked] = useState(false);
+  
+  // Estados para controlar la carga asíncrona de Supabase
+  const [distro, setDistro] = useState<Distro | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 1. Buscamos la distribución forzando la comparación a String para evitar choques num/string
-const DISTRO = ALL_DISTROS?.find(
-  (d) => String(d.id).trim().toLowerCase() === String(distroId).trim().toLowerCase()
-);
-  // 2. Cláusula de salvaguarda: si no se encuentra la distro, muestra un error elegante en lugar de romper el cliente
-  if (!DISTRO) {
+  useEffect(() => {
+    async function loadDistroDetails() {
+      try {
+        setLoading(true);
+
+        // 1. Normalizamos el ID de la URL eliminando caracteres especiales conflictivos (como el !)
+        const cleanId = distroId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+        // 2. Traemos las distribuciones directamente desde la base de datos
+        const { data, error } = await supabase.from('distributions').select('*');
+
+        if (error) throw error;
+
+        // 3. Evaluamos coincidencias tanto con el ID limpio como con la cadena exacta
+        const matchingRecord = data?.find((item) => {
+          const cleanDbId = item.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+          return cleanDbId === cleanId || item.id.trim().toLowerCase() === distroId.trim().toLowerCase();
+        });
+
+        if (matchingRecord) {
+          // 4. Adaptamos el formato snake_case de Supabase al camelCase esperado por tus gráficos y componentes
+          const mappedDistro: Distro = {
+            id: matchingRecord.id,
+            name: matchingRecord.name,
+            tagline: matchingRecord.tagline || '',
+            logoInitials: matchingRecord.logo_initials || matchingRecord.name?.substring(0, 3).toUpperCase(),
+            logoColor: matchingRecord.logo_color || '#3b82f6',
+            minRam: matchingRecord.min_ram || 2,
+            minStorage: matchingRecord.min_storage || 20,
+            minCpuCores: matchingRecord.min_cpu_cores || 2,
+            releaseModel: matchingRecord.release_model || 'LTS',
+            cpuArchitecture: matchingRecord.cpu_architecture || 'AMD64 / x86-64',
+            useCases: matchingRecord.use_cases || ['General'],
+            descriptionEs: matchingRecord.description_es || matchingRecord.tagline || '',
+            descriptionEn: matchingRecord.description_en || matchingRecord.tagline || '',
+            latestVersion: matchingRecord.latest_version || '1.0.0',
+            releaseDate: matchingRecord.release_date || 'Reciente',
+            basedOn: matchingRecord.based_on || 'Independent',
+            reviewCount: matchingRecord.review_count || 0,
+            communityRating: Number(matchingRecord.community_rating) || 4.5,
+            compatibilityScore: matchingRecord.compatibility_score || 90,
+            easeOfUse: matchingRecord.ease_of_use || 80,
+            hardwareEfficiency: matchingRecord.hardware_efficiency || 80,
+            stabilityScore: matchingRecord.stability_score || 80,
+            isPopular: matchingRecord.review_count > 50, // Flag dinámico basado en popularidad
+            reviews: matchingRecord.reviews || []
+          };
+          setDistro(mappedDistro);
+        } else {
+          setDistro(null);
+        }
+      } catch (err) {
+        console.error('Error sincronizando la ficha técnica:', err);
+        setDistro(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (distroId) {
+      loadDistroDetails();
+    }
+  }, [distroId, supabase]);
+
+  // Pantalla de carga estética mientras consulta Supabase
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-xs text-muted-foreground animate-pulse">Sincronizando ficha técnica...</p>
+      </div>
+    );
+  }
+
+  // Cláusula de salvaguarda reactiva si el ID no existe en Supabase
+  if (!distro) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="bg-card p-8 rounded-2xl border border-border max-w-md mx-auto shadow-sm">
@@ -102,7 +173,7 @@ const DISTRO = ALL_DISTROS?.find(
           Distro Finder
         </Link>
         <ChevronRight size={12} className="text-muted-foreground/50" />
-        <span className="text-foreground font-semibold">{DISTRO.name}</span>
+        <span className="text-foreground font-semibold">{distro.name}</span>
       </div>
 
       {/* Hero Header */}
@@ -110,7 +181,7 @@ const DISTRO = ALL_DISTROS?.find(
         <div
           className="h-2 w-full"
           style={{
-            background: `linear-gradient(90deg, ${DISTRO.logoColor}, ${DISTRO.logoColor}55)`,
+            background: `linear-gradient(90deg, ${distro.logoColor}, ${distro.logoColor}55)`,
           }}
         />
         <div className="p-6 lg:p-8">
@@ -118,40 +189,40 @@ const DISTRO = ALL_DISTROS?.find(
             <div className="flex items-start gap-5 flex-1">
               <div
                 className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-extrabold shrink-0 shadow-sm"
-                style={{ backgroundColor: DISTRO.logoColor }}
+                style={{ backgroundColor: distro.logoColor }}
               >
-                {DISTRO.logoInitials}
+                {distro.logoInitials}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h1 className="text-2xl font-extrabold text-foreground">{DISTRO.name}</h1>
-                  <Badge variant="success">{DISTRO.releaseModel}</Badge>
-                  {DISTRO.isPopular && <Badge variant="primary">Popular</Badge>}
+                  <h1 className="text-2xl font-extrabold text-foreground">{distro.name}</h1>
+                  <Badge variant="success">{distro.releaseModel}</Badge>
+                  {distro.isPopular && <Badge variant="primary">Popular</Badge>}
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">{DISTRO.tagline}</p>
+                <p className="text-sm text-muted-foreground mb-3">{distro.tagline}</p>
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <Package size={13} />
                     <span className="font-mono font-semibold text-foreground">
-                      v{DISTRO.latestVersion}
+                      v{distro.latestVersion}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar size={13} />
-                    <span>Released {DISTRO.releaseDate}</span>
+                    <span>Released {distro.releaseDate}</span>
                   </div>
-                  {DISTRO.basedOn && (
+                  {distro.basedOn && (
                     <div className="flex items-center gap-1.5">
                       <Terminal size={13} />
                       <span>
                         Based on{' '}
-                        <span className="font-semibold text-foreground">{DISTRO.basedOn}</span>
+                        <span className="font-semibold text-foreground">{distro.basedOn}</span>
                       </span>
                     </div>
                   )}
                   <div className="flex items-center gap-1.5">
                     <Users size={13} />
-                    <span>{DISTRO.reviewCount.toLocaleString()} reviews</span>
+                    <span>{distro.reviewCount.toLocaleString()} reviews</span>
                   </div>
                 </div>
               </div>
@@ -160,14 +231,14 @@ const DISTRO = ALL_DISTROS?.find(
             <div className="flex flex-row lg:flex-col gap-3 shrink-0">
               <div className="bg-muted/50 rounded-xl p-4 text-center min-w-[110px]">
                 <div className="text-3xl font-extrabold text-foreground tabular-nums mb-1">
-                  {DISTRO.communityRating.toFixed(1)}
+                  {distro.communityRating.toFixed(1)}
                 </div>
-                <StarRating rating={DISTRO.communityRating} size={12} />
+                <StarRating rating={distro.communityRating} size={12} />
                 <p className="text-[10px] text-muted-foreground mt-1">Community rating</p>
               </div>
               <div className="bg-success/10 rounded-xl p-4 text-center min-w-[110px]">
                 <div className="text-3xl font-extrabold text-success tabular-nums mb-1">
-                  {DISTRO.compatibilityScore}%
+                  {distro.compatibilityScore}%
                 </div>
                 <p className="text-[10px] text-success/80 font-semibold">Compatibility</p>
               </div>
@@ -175,8 +246,8 @@ const DISTRO = ALL_DISTROS?.find(
           </div>
 
           <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-border">
-            {DISTRO.useCases.map((uc) => {
-              const cfg = USE_CASE_CONFIG[uc];
+            {distro.useCases?.map((uc) => {
+              const cfg = USE_CASE_CONFIG[uc] || { bg: 'bg-muted', color: 'text-muted-foreground', label: uc };
               return (
                 <span
                   key={`hero-uc-${uc}`}
@@ -191,7 +262,7 @@ const DISTRO = ALL_DISTROS?.find(
           <div className="flex flex-wrap items-center gap-3 mt-5">
             <a href="#" className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs flex items-center gap-2 hover:opacity-90 transition-opacity">
               <Download size={15} />
-              Download {DISTRO.name}
+              Download {distro.name}
             </a>
             <a href="#" className="px-4 py-2 border border-border bg-card text-foreground font-semibold rounded-xl text-xs flex items-center gap-2 hover:bg-muted transition-colors">
               <ExternalLink size={15} />
@@ -234,9 +305,9 @@ const DISTRO = ALL_DISTROS?.find(
 
       {/* Tab Content Components */}
       <div className="pb-10">
-        {activeTab === 'Overview' && <OverviewTab DISTRO={DISTRO} />}
-        {activeTab === 'Specifications' && <SpecificationsTab DISTRO={DISTRO} />}
-        {activeTab === 'Reviews' && <ReviewsTab DISTRO={DISTRO} />}
+        {activeTab === 'Overview' && <OverviewTab DISTRO={distro} />}
+        {activeTab === 'Specifications' && <SpecificationsTab DISTRO={distro} />}
+        {activeTab === 'Reviews' && <ReviewsTab DISTRO={distro} />}
         {activeTab === 'Versions' && <div className="text-sm text-muted-foreground bg-card p-6 rounded-xl border border-border">Version history log coming soon...</div>}
         {activeTab === 'Similar' && <div className="text-sm text-muted-foreground bg-card p-6 rounded-xl border border-border">Similar distributions suggestion system...</div>}
       </div>
@@ -251,7 +322,7 @@ function OverviewTab({ DISTRO }: { DISTRO: Distro }) {
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h2 className="text-sm font-bold text-foreground mb-3">About {DISTRO.name}</h2>
-          <p className="text-xs text-muted-foreground leading-relaxed">{DISTRO.descriptionEs || DISTRO.descriptionEn}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{DISTRO.descriptionEs || DISTRO.descriptionEn || DISTRO.tagline}</p>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
@@ -360,30 +431,36 @@ function ReviewsTab({ DISTRO }: { DISTRO: Distro }) {
       </div>
 
       <div className="lg:col-span-2 space-y-4">
-        {DISTRO.reviews?.map((review) => (
-          <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
-            <div className="flex items-center justify-between dynamic-review-header mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-foreground">{review.author}</span>
-                {review.verified && <span className="text-[10px] bg-success/10 text-success font-black px-1.5 py-0.5 rounded flex items-center gap-0.5"><CheckCircle size={10}/> Verified</span>}
-              </div>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${USE_CASE_CONFIG[review.useCase]?.bg || 'bg-muted'} ${USE_CASE_CONFIG[review.useCase]?.color || 'text-foreground'}`}>
-                {USE_CASE_CONFIG[review.useCase]?.label || review.useCase}
-              </span>
-            </div>
-            <h4 className="text-xs font-bold text-foreground mb-1">{review.title}</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed mb-4">{review.body}</p>
-            <div className="flex items-center gap-2 pt-3 border-t border-border">
-              <button 
-                onClick={() => setHelpfulClicked((prev) => prev.includes(review.id) ? prev.filter((id) => id !== review.id) : [...prev, review.id])}
-                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${helpfulClicked.includes(review.id) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
-              >
-                <ThumbsUp size={12} />
-                {review.helpful + (helpfulClicked.includes(review.id) ? 1 : 0)}
-              </button>
-            </div>
+        {DISTRO.reviews && DISTRO.reviews.length === 0 ? (
+          <div className="text-center p-8 bg-card rounded-xl border border-border text-xs text-muted-foreground">
+            No reviews submitted yet for this distribution.
           </div>
-        ))}
+        ) : (
+          DISTRO.reviews?.map((review) => (
+            <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <div className="flex items-center justify-between dynamic-review-header mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">{review.author}</span>
+                  {review.verified && <span className="text-[10px] bg-success/10 text-success font-black px-1.5 py-0.5 rounded flex items-center gap-0.5"><CheckCircle size={10}/> Verified</span>}
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${USE_CASE_CONFIG[review.useCase]?.bg || 'bg-muted'} ${USE_CASE_CONFIG[review.useCase]?.color || 'text-foreground'}`}>
+                  {USE_CASE_CONFIG[review.useCase]?.label || review.useCase}
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-foreground mb-1">{review.title}</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-4">{review.body}</p>
+              <div className="flex items-center gap-2 pt-3 border-t border-border">
+                <button 
+                  onClick={() => setHelpfulClicked((prev) => prev.includes(review.id) ? prev.filter((id) => id !== review.id) : [...prev, review.id])}
+                  className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${helpfulClicked.includes(review.id) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+                >
+                  <ThumbsUp size={12} />
+                  {review.helpful + (helpfulClicked.includes(review.id) ? 1 : 0)}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
