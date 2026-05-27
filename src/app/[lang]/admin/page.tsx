@@ -60,7 +60,6 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
         .select('id, name, email, role')
         .order('name', { ascending: true });
 
-      // PASO 3 (Lectura): Mapeamos explícitamente incluyendo los nuevos campos para la ficha técnica
       const { data: distroData, error: distroError } = await supabase
         .from('distributions')
         .select(`
@@ -136,7 +135,6 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
 
     const distroId = editingDistro.id || editingDistro.name.toLowerCase().trim().replace(/\s+/g, '-');
     
-    // PASO 3 (Escritura): Mapeamos de camelCase (Frontend) a snake_case (Campos reales de la BD en Supabase)
     const finalDistroDB = {
       id: distroId,
       name: editingDistro.name,
@@ -149,8 +147,6 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
       release_model: editingDistro.releaseModel || 'LTS',
       cpu_architecture: editingDistro.cpuArchitecture || 'AMD64 / x86-64',
       use_cases: Array.isArray(editingDistro.useCases) ? editingDistro.useCases : ['Beginner'],
-      
-      // Nuevos campos vinculados mapeados a la base de datos
       description_es: editingDistro.descriptionEs || '',
       description_en: editingDistro.descriptionEn || '',
       latest_version: editingDistro.latestVersion || '1.0.0',
@@ -171,15 +167,14 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
 
       if (error) {
         console.error("Error devuelto por Supabase:", error);
-        alert(`🚨 ERROR AL GUARDAR EN SUPABASE:\n\nCódigo: ${error.code}\nMensaje: ${error.message}\nDetalles: ${error.details || 'Ninguno'}`);
+        alert(`🚨 ERROR AL GUARDAR EN SUPABASE:\n\nCódigo: ${error.code}\nMensaje: ${error.message}`);
       } else {
         alert(lang === 'es' ? '¡Distribución guardada correctamente!' : 'Distribution saved successfully!');
         fetchCollections();
         setEditingDistro(null);
       }
     } catch (err: any) {
-      console.error("Error crítico en la ejecución del script:", err);
-      alert(`❌ ERROR CRÍTICO DEL CLIENTE: ${err.message || err}`);
+      console.error("Error crítico:", err);
     }
   };
 
@@ -251,10 +246,10 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* CONTENIDO PRINCIPAL: ESTRUCTURA INTERCAMBIADA SEGÚN LA PESTAÑA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* PANEL IZQUIERDO */}
+        {/* ================= COLUMNA ANCHA (IZQUIERDA - lg:col-span-2) ================= */}
         <div className="lg:col-span-2 space-y-4">
           {loadingData ? (
             <div className="space-y-3 animate-pulse">
@@ -263,6 +258,7 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
             </div>
           ) : (
             <>
+              {/* CASO A: Pestaña Usuarios -> Lista de usuarios (Ancha por defecto) */}
               {activeTab === 'users' && (
                 <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-border bg-muted/10">
@@ -308,319 +304,334 @@ export default function AdminDashboard({ params }: { params: { lang: string } })
                 </div>
               )}
 
+              {/* CASO B: Pestaña Distribuciones -> FORMULARIO COMPLETO (¡Ahora a la izquierda y bien espacioso!) */}
               {activeTab === 'distros' && (
-                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-border bg-muted/10 flex justify-between items-center">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      {lang === 'es' ? 'Fichas Tecnológicas' : 'Technological Sheets'}
-                    </h3>
-                    <button
-                      onClick={() => setEditingDistro({
-                        name: '', tagline: '', logoInitials: '', logoColor: '#3b82f6',
-                        minRam: 2, minStorage: 20, minCpuCores: 2, releaseModel: 'LTS',
-                        cpuArchitecture: 'AMD64 / x86-64', useCases: ['Beginner'],
-                        descriptionEs: '', descriptionEn: '', latestVersion: '1.0.0',
-                        releaseDate: '', basedOn: 'Independent', easeOfUse: 80,
-                        hardwareEfficiency: 80, stabilityScore: 80, compatibilityScore: 90,
-                        communityRating: 4.5
-                      })}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 transition-opacity"
-                    >
-                      <Plus size={14} />
-                      {lang === 'es' ? 'Nueva Ficha' : 'New Sheet'}
-                    </button>
-                  </div>
-                  <div className="divide-y divide-border">
-                    {distros.length === 0 ? (
-                      <p className="p-4 text-xs text-muted-foreground text-center">El catálogo en Supabase está vacío.</p>
-                    ) : (
-                      distros.map((d) => (
-                        <div key={d.id} className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs shrink-0" style={{ backgroundColor: d.logoColor }}>
-                              {d.logoInitials}
+                <>
+                  {editingDistro ? (
+                    <form onSubmit={handleSaveDistro} className="bg-card border border-border rounded-2xl p-6 space-y-6 shadow-sm">
+                      <div className="flex justify-between items-center border-b border-border pb-3">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-foreground">
+                          {editingDistro.id ? 'Editar Distribución Técnica' : 'Nueva Ficha de Distribución'}
+                        </h3>
+                        {editingDistro.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDistro(editingDistro.id!)}
+                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Grid interno de dos columnas para optimizar el espacio del formulario */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
+                        {/* ─── BLOQUE 1: IDENTIDAD BÁSICA ─── */}
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Nombre de la Distribución</label>
+                            <input
+                              type="text"
+                              required
+                              value={editingDistro.name || ''}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:border-primary"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Iniciales Logo</label>
+                              <input
+                                type="text"
+                                maxLength={3}
+                                placeholder="e.g. POP"
+                                value={editingDistro.logoInitials || ''}
+                                onChange={(e) => setEditingDistro(prev => ({ ...prev, logoInitials: e.target.value }))}
+                                className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground font-mono"
+                              />
                             </div>
-                            <div>
-                              <span className="text-xs font-bold block">{d.name}</span>
-                              <span className="text-[11px] text-muted-foreground line-clamp-1">{d.tagline}</span>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Color Fondo Hex</label>
+                              <input
+                                type="color"
+                                value={editingDistro.logoColor || '#3b82f6'}
+                                onChange={(e) => setEditingDistro(prev => ({ ...prev, logoColor: e.target.value }))}
+                                className="w-full h-8 rounded-xl border border-border bg-background cursor-pointer"
+                              />
                             </div>
                           </div>
-                          <button
-                            onClick={() => setEditingDistro(d)}
-                            className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-xl transition-colors"
-                          >
-                            <Edit size={16} />
-                          </button>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Eslogan Breve (Tagline)</label>
+                            <input
+                              type="text"
+                              value={editingDistro.tagline || ''}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, tagline: e.target.value }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
+                            />
+                          </div>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+
+                        {/* ─── BLOQUE 2: METADATOS TÉCNICOS ─── */}
+                        <div className="bg-muted/20 p-3 rounded-xl border border-border/60 space-y-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Última Versión</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 22.04 LTS"
+                                value={editingDistro.latestVersion || ''}
+                                onChange={(e) => setEditingDistro(prev => ({ ...prev, latestVersion: e.target.value }))}
+                                className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Lanzamiento</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. May 2026"
+                                value={editingDistro.releaseDate || ''}
+                                onChange={(e) => setEditingDistro(prev => ({ ...prev, releaseDate: e.target.value }))}
+                                className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Distribución Base (Based on)</label>
+                            <input
+                              type="text"
+                              placeholder="Debian, Ubuntu, Arch..."
+                              value={editingDistro.basedOn || ''}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, basedOn: e.target.value }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ─── BLOQUE 3: DESCRIPCIONES EXPANDIDAS (A doble columna completa) ─── */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-3 rounded-xl border border-border/40">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Descripción Completa (ES)</label>
+                          <textarea
+                            rows={4}
+                            value={editingDistro.descriptionEs || ''}
+                            onChange={(e) => setEditingDistro(prev => ({ ...prev, descriptionEs: e.target.value }))}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground resize-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Descripción Completa (EN)</label>
+                          <textarea
+                            rows={4}
+                            value={editingDistro.descriptionEn || ''}
+                            onChange={(e) => setEditingDistro(prev => ({ ...prev, descriptionEn: e.target.value }))}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground resize-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* ─── BLOQUE 4: REQUISITOS DE HARDWARE ─── */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">RAM Mín. (GB)</label>
+                            <input
+                              type="number"
+                              value={editingDistro.minRam || 2}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, minRam: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Disco (GB)</label>
+                            <input
+                              type="number"
+                              value={editingDistro.minStorage || 20}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, minStorage: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Cores CPU</label>
+                            <input
+                              type="number"
+                              value={editingDistro.minCpuCores || 2}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, minCpuCores: Number(e.target.value) }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background"
+                            />
+                          </div>
+                        </div>
+
+                        {/* ─── BLOQUE 5: ARQUITECTURA Y CICLO ─── */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Ciclo Lanzamiento</label>
+                            <select
+                              value={editingDistro.releaseModel || 'LTS'}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, releaseModel: e.target.value }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
+                            >
+                              <option value="LTS">LTS</option>
+                              <option value="Rolling">Rolling</option>
+                              <option value="Fixed">Fixed</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Arquitectura CPU</label>
+                            <select
+                              value={editingDistro.cpuArchitecture || 'AMD64 / x86-64'}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, cpuArchitecture: e.target.value }))}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
+                            >
+                              <option value="AMD64 / x86-64">AMD64 / x86-64</option>
+                              <option value="ARM64">ARM64</option>
+                              <option value="x86 (32-bit)">x86 (32-bit)</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ─── BLOQUE 6: MÉTRICAS DEL GRÁFICO DE RADAR ─── */}
+                      <div className="bg-muted/30 p-4 rounded-xl border border-border/40 space-y-3">
+                        <h4 className="text-[10px] font-black text-foreground/70 uppercase tracking-wider">Puntuaciones de Rendimiento y Feedback (0 - 100)</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">Facilidad de Uso</label>
+                            <input
+                              type="number" min={0} max={100}
+                              value={editingDistro.easeOfUse ?? 80}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, easeOfUse: parseInt(e.target.value) }))}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">Eficiencia Hard.</label>
+                            <input
+                              type="number" min={0} max={100}
+                              value={editingDistro.hardwareEfficiency ?? 80}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, hardwareEfficiency: parseInt(e.target.value) }))}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">Estabilidad</label>
+                            <input
+                              type="number" min={0} max={100}
+                              value={editingDistro.stabilityScore ?? 80}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, stabilityScore: parseInt(e.target.value) }))}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">Compatibilidad</label>
+                            <input
+                              type="number" min={0} max={100}
+                              value={editingDistro.compatibilityScore ?? 90}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, compatibilityScore: parseInt(e.target.value) }))}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
+                            />
+                          </div>
+                          <div className="space-y-1 col-span-2 md:col-span-1">
+                            <label className="text-[9px] font-bold text-muted-foreground uppercase">Comunidad (0-5)</label>
+                            <input
+                              type="number" step="0.1" min={0} max={5}
+                              value={editingDistro.communityRating ?? 4.5}
+                              onChange={(e) => setEditingDistro(prev => ({ ...prev, communityRating: parseFloat(e.target.value) }))}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-3 border-t border-border justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setEditingDistro(null)}
+                          className="px-5 py-2 border border-border bg-muted/40 text-muted-foreground font-bold text-xs rounded-xl hover:bg-muted transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-8 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow hover:opacity-90 transition-opacity"
+                        >
+                          Guardar Ficha
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="bg-card border border-border border-dashed rounded-2xl p-12 text-center text-xs text-muted-foreground h-full flex flex-col justify-center items-center">
+                      <Disc size={32} className="text-muted-foreground/40 mb-2 animate-pulse" />
+                      Selecciona una distribución del catálogo lateral o pulsa en "Nueva Ficha" para empezar a estructurar los campos técnicos.
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
         </div>
 
-        {/* PANEL DERECHO: FORMULARIO PASO 2 COMPLETO */}
+        {/* ================= COLUMNA ESTRECHA (DERECHA - lg:col-span-1) ================= */}
         <div className="lg:col-span-1">
-          {activeTab === 'distros' && editingDistro ? (
-            <div className="max-h-[80vh] overflow-y-auto pr-1 scrollbar-thin">
-              <form onSubmit={handleSaveDistro} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
-                <div className="flex justify-between items-center border-b border-border pb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                    {editingDistro.id ? 'Editar Distribución' : 'Nueva Distribución'}
-                  </h3>
-                  {editingDistro.id && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteDistro(editingDistro.id!)}
-                      className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-                
-                {/* ─── BLOQUE 1: IDENTIDAD BÁSICA ─── */}
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Nombre de la Distribución</label>
-                    <input
-                      type="text"
-                      required
-                      value={editingDistro.name || ''}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Iniciales Logo</label>
-                      <input
-                        type="text"
-                        maxLength={3}
-                        placeholder="UBUNTU -> UBU"
-                        value={editingDistro.logoInitials || ''}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, logoInitials: e.target.value }))}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground font-mono"
-                      />
+          {/* Si estamos en la pestaña de distribuciones, aquí se renderizan las "Fichas Tecnológicas" existentes */}
+          {activeTab === 'distros' ? (
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-border bg-muted/10 flex justify-between items-center">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {lang === 'es' ? 'Fichas Tecnológicas' : 'Technological Sheets'}
+                </h3>
+                <button
+                  onClick={() => setEditingDistro({
+                    name: '', tagline: '', logoInitials: '', logoColor: '#3b82f6',
+                    minRam: 2, minStorage: 20, minCpuCores: 2, releaseModel: 'LTS',
+                    cpuArchitecture: 'AMD64 / x86-64', useCases: ['Beginner'],
+                    descriptionEs: '', descriptionEn: '', latestVersion: '1.0.0',
+                    releaseDate: '', basedOn: 'Independent', easeOfUse: 80,
+                    hardwareEfficiency: 80, stabilityScore: 80, compatibilityScore: 90,
+                    communityRating: 4.5
+                  })}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-primary-foreground font-bold text-[11px] rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  <Plus size={12} />
+                  {lang === 'es' ? 'Nueva Ficha' : 'New Sheet'}
+                </button>
+              </div>
+              <div className="divide-y divide-border max-h-[70vh] overflow-y-auto scrollbar-thin">
+                {distros.length === 0 ? (
+                  <p className="p-4 text-xs text-muted-foreground text-center">El catálogo en Supabase está vacío.</p>
+                ) : (
+                  distros.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between p-3.5 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-black text-[10px] shrink-0 shadow-sm" style={{ backgroundColor: d.logoColor }}>
+                          {d.logoInitials}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold block truncate text-foreground">{d.name}</span>
+                          <span className="text-[10px] text-muted-foreground line-clamp-1">{d.tagline}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setEditingDistro(d)}
+                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors shrink-0"
+                      >
+                        <Edit size={14} />
+                      </button>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Color de Fondo Hex</label>
-                      <input
-                        type="color"
-                        value={editingDistro.logoColor || '#3b82f6'}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, logoColor: e.target.value }))}
-                        className="w-full h-8 rounded-xl border border-border bg-background cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Eslogan Breve (Tagline)</label>
-                    <input
-                      type="text"
-                      value={editingDistro.tagline || ''}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, tagline: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
-                    />
-                  </div>
-                </div>
-
-                {/* ─── BLOQUE 2: METADATOS TÉCNICOS Y HISTORIAL ─── */}
-                <div className="bg-muted/30 p-3 rounded-xl border border-border/40 space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Última Versión</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 24.04 LTS"
-                        value={editingDistro.latestVersion || ''}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, latestVersion: e.target.value }))}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Fecha Lanzamiento</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. April 2026"
-                        value={editingDistro.releaseDate || ''}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, releaseDate: e.target.value }))}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Distribución Base (Based on)</label>
-                    <input
-                      type="text"
-                      placeholder="Debian, Arch, Independent..."
-                      value={editingDistro.basedOn || ''}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, basedOn: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
-                    />
-                  </div>
-                </div>
-
-                {/* ─── BLOQUE 3: DESCRIPCIONES AMPLIADAS ─── */}
-                <div className="bg-muted/20 p-3 rounded-xl border border-border/50 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Descripción Completa (ES)</label>
-                    <textarea
-                      rows={3}
-                      value={editingDistro.descriptionEs || ''}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, descriptionEs: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Descripción Completa (EN)</label>
-                    <textarea
-                      rows={3}
-                      value={editingDistro.descriptionEn || ''}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, descriptionEn: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground resize-none"
-                    />
-                  </div>
-                </div>
-
-                {/* ─── BLOQUE 4: REQUISITOS DE HARDWARE ─── */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">RAM Mín. (GB)</label>
-                    <input
-                      type="number"
-                      value={editingDistro.minRam || 2}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, minRam: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Disco Mín. (GB)</label>
-                    <input
-                      type="number"
-                      value={editingDistro.minStorage || 20}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, minStorage: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Núcleos CPU</label>
-                    <input
-                      type="number"
-                      value={editingDistro.minCpuCores || 2}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, minCpuCores: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background"
-                    />
-                  </div>
-                </div>
-
-                {/* ─── BLOQUE 5: ARQUITECTURA Y CICLO ─── */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Ciclo de Lanzamiento</label>
-                    <select
-                      value={editingDistro.releaseModel || 'LTS'}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, releaseModel: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
-                    >
-                      <option value="LTS">LTS</option>
-                      <option value="Rolling">Rolling</option>
-                      <option value="Fixed">Fixed</option>
-                      <option value="Semi-rolling">Semi-rolling</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Arquitectura CPU</label>
-                    <select
-                      value={editingDistro.cpuArchitecture || 'AMD64 / x86-64'}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, cpuArchitecture: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground"
-                    >
-                      <option value="AMD64 / x86-64">AMD64 / x86-64</option>
-                      <option value="ARM64">ARM64</option>
-                      <option value="x86 (32-bit)">x86 (32-bit)</option>
-                      <option value="RISC-V">RISC-V</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* ─── BLOQUE 6: MÉTRICAS DE RENDIMIENTO (0 - 100) ─── */}
-                <div className="bg-muted/30 p-3 rounded-xl border border-border/40 space-y-2">
-                  <h4 className="text-[10px] font-bold text-foreground/70 uppercase tracking-wider mb-1">Métricas de Gráfico de Radar</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-0.5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">Facilidad (Ease of use)</label>
-                      <input
-                        type="number" min={0} max={100}
-                        value={editingDistro.easeOfUse ?? 80}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, easeOfUse: parseInt(e.target.value) }))}
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">Eficiencia Hardware</label>
-                      <input
-                        type="number" min={0} max={100}
-                        value={editingDistro.hardwareEfficiency ?? 80}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, hardwareEfficiency: parseInt(e.target.value) }))}
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">Estabilidad (Stability)</label>
-                      <input
-                        type="number" min={0} max={100}
-                        value={editingDistro.stabilityScore ?? 80}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, stabilityScore: parseInt(e.target.value) }))}
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">Compatibilidad global</label>
-                      <input
-                        type="number" min={0} max={100}
-                        value={editingDistro.compatibilityScore ?? 90}
-                        onChange={(e) => setEditingDistro(prev => ({ ...prev, compatibilityScore: parseInt(e.target.value) }))}
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1 pt-1">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase block">Puntuación Comunidad (0.0 - 5.0)</label>
-                    <input
-                      type="number" step="0.1" min={0} max={5}
-                      value={editingDistro.communityRating ?? 4.5}
-                      onChange={(e) => setEditingDistro(prev => ({ ...prev, communityRating: parseFloat(e.target.value) }))}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-2 border-t border-border">
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow hover:opacity-90 transition-opacity"
-                  >
-                    Guardar Ficha
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingDistro(null)}
-                    className="px-4 py-2 border border-border bg-muted/40 text-muted-foreground font-semibold text-xs rounded-xl hover:bg-muted transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
+                  ))
+                )}
+              </div>
             </div>
           ) : (
+            // Mensaje de contexto para cuando se visualiza la pestaña de Usuarios
             <div className="bg-card border border-border border-dashed rounded-2xl p-6 text-center text-xs text-muted-foreground">
-              Selecciona una distribución de la lista para editarla o crea una nueva ficha utilizando el botón superior.
+              {lang === 'es' 
+                ? 'Usa el selector superior para cambiar al catálogo de distribuciones y gestionar las especificaciones de hardware.' 
+                : 'Use the top selector to switch to the distributions catalog and manage hardware specifications.'}
             </div>
           )}
         </div>
