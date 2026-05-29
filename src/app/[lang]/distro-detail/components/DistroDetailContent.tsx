@@ -63,7 +63,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Evitamos fallos de hidratación asíncrona / removeChild en Next.js
+  // Evitamos fallos de hidratación asíncrona en Next.js
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -76,7 +76,7 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
 
         if (error) throw error;
 
-        // Triple lógica de matching tolerante a variaciones de URL y caracteres especiales (!)
+        // Lógica de matching tolerante a variaciones de URL y caracteres especiales (!)
         const matchingRecord = data?.find((item) => {
           const dbIdClean = item.id.trim().toLowerCase();
           const paramIdClean = distroId.trim().toLowerCase();
@@ -98,7 +98,10 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             logoInitials: matchingRecord.logo_initials || matchingRecord.name?.substring(0, 3).toUpperCase(),
             logoColor: matchingRecord.logo_color || '#3b82f6',
             minRam: matchingRecord.min_ram || 2,
-            minStorage: matchingRecord.min_storage || 20,
+            
+            // Sincronización dinámica corregida con la base de datos:
+            minStorage: matchingRecord.min_storage || 20, 
+            
             minCpuCores: matchingRecord.min_cpu_cores || 2,
             releaseModel: matchingRecord.release_model || 'LTS',
             cpuArchitecture: matchingRecord.cpu_architecture || 'AMD64 / x86-64',
@@ -250,7 +253,6 @@ export default function DistroDetailContent({ distroId, lang }: DistroDetailCont
             </div>
           </div>
 
-          {/* CONTROL ULTRA-SEGURO EVITA ELEMENTOS UNDEFINED EN MAP */}
           <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-border">
             {distro.useCases?.map((uc) => {
               if (!uc) return null;
