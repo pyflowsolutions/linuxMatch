@@ -18,65 +18,80 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Filtros
+  // Filtros en el Estado
   const [searchQuery, setSearchQuery] = useState('');
-  const [ramFilter, setRamFilter] = useState(16);
+  const [ramFilter, setRamFilter] = useState(16); // Puedes cambiarlo a 64 por defecto si quieres que muestre todo al inicio
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [useCaseFilter, setUseCaseFilter] = useState('all');
+  const [archFilter, setArchFilter] = useState('all');
 
-  // Evitamos problemas de hidratación en Next.js (el error removeChild)
+  // Evitamos problemas de hidratación en Next.js
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
- // REEMPLAZA EL CARGADOR DE SUPABASE EN SU PAGE.TSX POR ESTE:
-useEffect(() => {
-  async function loadActiveDistros() {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('distributions')
-        .select(`
-          id, name, tagline, logoInitials:logo_initials, logoColor:logo_color,
-          minRam:min_ram, minStorage:min_storage, minCpuCores:min_cpu_cores,
-          releaseModel:release_model, cpuArchitecture:cpu_architecture,
-          useCases:use_cases, descriptionEs:description_es, descriptionEn:description_en,
-          latestVersion:latest_version, releaseDate:release_date, basedOn:based_on,
-          easeOfUse:ease_of_use, hardwareEfficiency:hardware_efficiency,
-          stabilityScore:stability_score, compatibilityScore:compatibility_score,
-          communityRating:community_rating,
-          difficulty // 👈 ASEGÚRATE DE TRAER ESTA COLUMNA DE LA BASE DE DATOS
-        `);
+  // Cargador de Supabase
+  useEffect(() => {
+    async function loadActiveDistros() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('distributions')
+          .select(`
+            id, name, tagline, logoInitials:logo_initials, logoColor:logo_color,
+            minRam:min_ram, minStorage:min_storage, minCpuCores:min_cpu_cores,
+            releaseModel:release_model, cpuArchitecture:cpu_architecture,
+            useCases:use_cases, descriptionEs:description_es, descriptionEn:description_en,
+            latestVersion:latest_version, releaseDate:release_date, basedOn:based_on,
+            easeOfUse:ease_of_use, hardwareEfficiency:hardware_efficiency,
+            stabilityScore:stability_score, compatibilityScore:compatibility_score,
+            communityRating:community_rating,
+            difficulty
+          `);
 
-      if (!error && data) {
-        // Mapeamos de forma segura para que useCase y difficulty nunca sean undefined
-        const normalizedData = data.map((item: any) => ({
-          ...item,
-          // Si tu base de datos guarda 'use_cases' como array, extraemos el primero
-          useCase: Array.isArray(item.useCases) ? item.useCases[0] : (item.useCases || 'general'),
-          // Forzamos un fallback seguro para difficulty si viene vacío de la BD
-          difficulty: item.difficulty || 'beginner'
-        }));
+        if (!error && data) {
+          const normalizedData = data.map((item: any) => ({
+            ...item,
+            useCase: Array.isArray(item.useCases) ? item.useCases[0] : (item.useCases || 'general'),
+            difficulty: item.difficulty || 'beginner'
+          }));
 
-        setDistros(normalizedData as Distro[]);
+          setDistros(normalizedData as Distro[]);
+        }
+      } catch (err) {
+        console.error("Error al sincronizar el catálogo dinámico:", err);
+      } finally {
+        loading && setLoading(false);
       }
-    } catch (err) {
-      console.error("Error al sincronizar el catálogo dinámico:", err);
-    } finally {
-      setLoading(false);
     }
-  }
-  loadActiveDistros();
-}, [supabase]);
+    loadActiveDistros();
+  }, [supabase]);
 
-  // LÓGICA DE FILTRADO
+  // LÓGICA DE FILTRADO AMPLIADA
   const filteredDistros = distros.filter(distro => {
     const distroName = distro.name?.toLowerCase() || '';
     const distroTagline = distro.tagline?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
 
+    // 1. Filtro por texto
     const matchesSearch = distroName.includes(query) || distroTagline.includes(query);
+    
+    // 2. Filtro por RAM Mínima
     const matchesRam = (distro.minRam || 0) <= ramFilter;
 
-    return matchesSearch && matchesRam;
+    // 3. Filtro por Dificultad
+    const matchesDifficulty = difficultyFilter === 'all' || distro.difficulty === difficultyFilter;
+
+    // 4. Filtro por Caso de Uso
+    const rawUseCase = Array.isArray(distro.useCases) ? distro.useCases[0] : distro.useCases;
+    const distroUseCase = String(rawUseCase || 'general').toLowerCase();
+    const matchesUseCase = useCaseFilter === 'all' || distroUseCase === useCaseFilter.toLowerCase();
+
+    // 5. Filtro por Arquitectura de CPU
+    const distroArch = String(distro.cpuArchitecture || '').toLowerCase();
+    const matchesArch = archFilter === 'all' || distroArch.includes(archFilter.toLowerCase());
+
+    return matchesSearch && matchesRam && matchesDifficulty && matchesUseCase && matchesArch;
   });
 
   if (!isMounted || loading) {
@@ -100,9 +115,12 @@ useEffect(() => {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
-        {/* Render de Filtros a la izquierda */}
-        <div className="lg:col-span-1 bg-card border border-border p-4 rounded-2xl h-fit">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Filtros</h3>
+        
+        {/* PANEL DE FILTROS A LA IZQUIERDA (YA CORREGIDO Y COMPLETO) */}
+        <div className="lg:col-span-1 bg-card border border-border p-4 rounded-2xl h-fit space-y-5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Filtros</h3>
+          
+          {/* 1. Filtro de RAM */}
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-medium">
               <span>RAM Mínima:</span>
@@ -117,6 +135,53 @@ useEffect(() => {
               className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
             />
           </div>
+
+          {/* 2. Filtro de Dificultad */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium block">Experiencia / Dificultad:</label>
+            <select
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
+            >
+              <option value="all">Todas las dificultades</option>
+              <option value="beginner">Principiante (Fácil)</option>
+              <option value="intermediate">Intermedio</option>
+              <option value="advanced">Avanzado (Experto)</option>
+            </select>
+          </div>
+
+          {/* 3. Filtro de Caso de Uso */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium block">Propósito / Caso de Uso:</label>
+            <select
+              value={useCaseFilter}
+              onChange={(e) => setUseCaseFilter(e.target.value)}
+              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
+            >
+              <option value="all">Todos los usos</option>
+              <option value="general">Uso General diario</option>
+              <option value="gaming">Gaming / Juegos</option>
+              <option value="server">Servidores</option>
+              <option value="security">Seguridad / Auditoría</option>
+              <option value="old_pc">PCs Antiguos / Ligeros</option>
+            </select>
+          </div>
+
+          {/* 4. Filtro de Arquitectura */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium block">Arquitectura CPU:</label>
+            <select
+              value={archFilter}
+              onChange={(e) => setArchFilter(e.target.value)}
+              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
+            >
+              <option value="all">Todas las arquitecturas</option>
+              <option value="x86_64">64-bit (x86_64)</option>
+              <option value="arm64">ARM64 (Raspberry Pi / Mac M1+)</option>
+              <option value="i686">32-bit antiguos (i386/i686)</option>
+            </select>
+          </div>
         </div>
 
         {/* CONTENEDOR DE TARJETAS DINÁMICAS */}
@@ -127,11 +192,9 @@ useEffect(() => {
             </div>
           ) : (
             filteredDistros.map((distro) => {
-              // Salvavidas ultra seguro para extraer el caso de uso sin romper nunca
               const rawUseCase = Array.isArray(distro.useCases) ? distro.useCases[0] : (distro.useCases || 'General');
               const useCaseKey = String(rawUseCase).toLowerCase();
               
-              // Buscamos en tu diccionario o aplicamos un estilo neutro si no existe la clave 'beginner'
               const badgeStyle = USE_CASE_CONFIG[useCaseKey] || USE_CASE_CONFIG[String(rawUseCase)] || {
                 bg: 'bg-primary/10',
                 color: 'text-primary',
@@ -151,14 +214,14 @@ useEffect(() => {
                     </span>
                   </div>
 
-                  {/* Especificaciones Técnicas cortas */}
+                  {/* Especificaciones Técnicas */}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground border-t border-border/45 pt-3">
                     <span>📦 <strong className="text-foreground">{distro.minRam || 0}GB</strong> RAM</span>
                     <span>⚙️ <strong className="text-foreground">{distro.minCpuCores || 0}</strong> CPU</span>
                     <span>💾 <strong className="text-foreground">{distro.minStorage || 0}GB</strong> Disk</span>
                   </div>
 
-                  {/* Enlace dinámico usando el ID exacto */}
+                  {/* Enlace dinámico */}
                   <div className="text-right pt-2 border-t border-border/20">
                     <a 
                       href={`/${lang}/distro-detail?id=${encodeURIComponent(distro.id)}`}
