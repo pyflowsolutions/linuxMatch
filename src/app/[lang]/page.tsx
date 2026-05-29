@@ -20,7 +20,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
 
   // Filtros en el Estado
   const [searchQuery, setSearchQuery] = useState('');
-  const [ramFilter, setRamFilter] = useState(16); // Puedes cambiarlo a 64 por defecto si quieres que muestre todo al inicio
+  const [ramFilter, setRamFilter] = useState(16); 
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [useCaseFilter, setUseCaseFilter] = useState('all');
   const [archFilter, setArchFilter] = useState('all');
@@ -61,7 +61,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
       } catch (err) {
         console.error("Error al sincronizar el catálogo dinámico:", err);
       } finally {
-        loading && setLoading(false);
+        setLoading(false);
       }
     }
     loadActiveDistros();
@@ -116,7 +116,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
         
-        {/* PANEL DE FILTROS A LA IZQUIERDA (YA CORREGIDO Y COMPLETO) */}
+        {/* PANEL DE FILTROS A LA IZQUIERDA */}
         <div className="lg:col-span-1 bg-card border border-border p-4 rounded-2xl h-fit space-y-5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Filtros</h3>
           
@@ -142,7 +142,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
             <select
               value={difficultyFilter}
               onChange={(e) => setDifficultyFilter(e.target.value)}
-              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
+              className="w-full p-2.5 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
             >
               <option value="all">Todas las dificultades</option>
               <option value="beginner">Principiante (Fácil)</option>
@@ -157,7 +157,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
             <select
               value={useCaseFilter}
               onChange={(e) => setUseCaseFilter(e.target.value)}
-              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
+              className="w-full p-2.5 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
             >
               <option value="all">Todos los usos</option>
               <option value="general">Uso General diario</option>
@@ -174,7 +174,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
             <select
               value={archFilter}
               onChange={(e) => setArchFilter(e.target.value)}
-              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
+              className="w-full p-2.5 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
             >
               <option value="all">Todas las arquitecturas</option>
               <option value="x86_64">64-bit (x86_64)</option>
