@@ -30,8 +30,10 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
     setIsMounted(true);
   }, []);
 
-  // Cargador de Supabase
+  // Cargador de Supabase Optimizado y Aislado
   useEffect(() => {
+    let isSubscribed = true;
+
     async function loadActiveDistros() {
       setLoading(true);
       try {
@@ -49,7 +51,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
             difficulty
           `);
 
-        if (!error && data) {
+        if (!error && data && isSubscribed) {
           const normalizedData = data.map((item: any) => ({
             ...item,
             useCase: Array.isArray(item.useCases) ? item.useCases[0] : (item.useCases || 'general'),
@@ -61,11 +63,19 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
       } catch (err) {
         console.error("Error al sincronizar el catálogo dinámico:", err);
       } finally {
-        setLoading(false);
+        if (isSubscribed) {
+          setLoading(false);
+        }
       }
     }
+
     loadActiveDistros();
-  }, [supabase]);
+
+    // Función de limpieza para desmontar el componente limpiamente
+    return () => {
+      isSubscribed = false;
+    };
+  }, []); // 👈 SOLUCIÓN: Array vacío. Ya no se reinicia infinitamente con la sesión del usuario.
 
   // LÓGICA DE FILTRADO AMPLIADA
   const filteredDistros = distros.filter(distro => {
