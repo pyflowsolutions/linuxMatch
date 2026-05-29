@@ -18,25 +18,23 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Filtros en el Estado
+  // Filtros inicializados con un margen seguro (64GB) para capturar todo el ecosistema
   const [searchQuery, setSearchQuery] = useState('');
-const matchesRam = (distro.minRam || 0) <= ramFilter;
+  const [ramFilter, setRamFilter] = useState(64); 
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [useCaseFilter, setUseCaseFilter] = useState('all');
   const [archFilter, setArchFilter] = useState('all');
 
-  // Evitamos problemas de hidratación en Next.js
+  // Control estricto de hidratación en Next.js App Router
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Cargador de Supabase Optimizado y Aislado
+  // Sincronización asíncrona de datos desde Supabase
   useEffect(() => {
-    let isSubscribed = true;
-
     async function loadActiveDistros() {
-      setLoading(true);
       try {
+        setLoading(true);
         const { data, error } = await supabase
           .from('distributions')
           .select(`
@@ -51,62 +49,57 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
             difficulty
           `);
 
-        if (!error && data && isSubscribed) {
+        if (!error && data) {
           const normalizedData = data.map((item: any) => ({
             ...item,
-            useCase: Array.isArray(item.useCases) ? item.useCases[0] : (item.useCases || 'general'),
+            useCases: Array.isArray(item.useCases) ? item.useCases : [item.useCases || 'general'],
             difficulty: item.difficulty || 'beginner'
           }));
 
           setDistros(normalizedData as Distro[]);
         }
       } catch (err) {
-        console.error("Error al sincronizar el catálogo dinámico:", err);
+        console.error("Error crítico en sincronización de catálogo:", err);
       } finally {
-        if (isSubscribed) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
-
     loadActiveDistros();
+  }, [supabase]);
 
-    // Función de limpieza para desmontar el componente limpiamente
-    return () => {
-      isSubscribed = false;
-    };
-  }, []); // 👈 SOLUCIÓN: Array vacío. Ya no se reinicia infinitamente con la sesión del usuario.
-
-  // LÓGICA DE FILTRADO AMPLIADA
-  const filteredDistros = distros.filter(distro => {
-    const distroName = distro.name?.toLowerCase() || '';
-    const distroTagline = distro.tagline?.toLowerCase() || '';
+  // Lógica segura de filtrado en cliente
+  const filteredDistros = distros.filter(item => {
+    if (!item) return false;
+    
+    const distroName = item.name?.toLowerCase() || '';
+    const distroTagline = item.tagline?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
 
-    // 1. Filtro por texto
+    // 1. Coincidencia por texto
     const matchesSearch = distroName.includes(query) || distroTagline.includes(query);
     
-    // 2. Filtro por RAM Mínima
-    const matchesRam = (distro.minRam || 0) <= ramFilter;
+    // 2. Coincidencia por RAM física asignada
+    const matchesRam = (item.minRam || 0) <= ramFilter;
 
-    // 3. Filtro por Dificultad
-    const matchesDifficulty = difficultyFilter === 'all' || distro.difficulty === difficultyFilter;
+    // 3. Nivel de curva de aprendizaje
+    const matchesDifficulty = difficultyFilter === 'all' || item.difficulty === difficultyFilter;
 
-    // 4. Filtro por Caso de Uso
-    const rawUseCase = Array.isArray(distro.useCases) ? distro.useCases[0] : distro.useCases;
-    const distroUseCase = String(rawUseCase || 'general').toLowerCase();
-    const matchesUseCase = useCaseFilter === 'all' || distroUseCase === useCaseFilter.toLowerCase();
+    // 4. Mapeo y comparación del array de casos de uso
+    const rawUseCase = Array.isArray(item.useCases) ? item.useCases[0] : item.useCases;
+    const currentUseCase = String(rawUseCase || 'general').toLowerCase();
+    const matchesUseCase = useCaseFilter === 'all' || currentUseCase === useCaseFilter.toLowerCase();
 
-    // 5. Filtro por Arquitectura de CPU
-    const distroArch = String(distro.cpuArchitecture || '').toLowerCase();
-    const matchesArch = archFilter === 'all' || distroArch.includes(archFilter.toLowerCase());
+    // 5. Soporte de arquitectura del procesador
+    const currentArch = String(item.cpuArchitecture || '').toLowerCase();
+    const matchesArch = archFilter === 'all' || currentArch.includes(archFilter.toLowerCase());
 
     return matchesSearch && matchesRam && matchesDifficulty && matchesUseCase && matchesArch;
   });
 
+  // Renderizado seguro contra fallos de desajuste de nodos HTML (Hydration Mismatch)
   if (!isMounted || loading) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center gap-2">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-2">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         <p className="text-xs text-muted-foreground animate-pulse">Cargando ecosistema Linux...</p>
       </div>
@@ -126,7 +119,7 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
         
-        {/* PANEL DE FILTROS A LA IZQUIERDA */}
+        {/* PANEL DE FILTROS */}
         <div className="lg:col-span-1 bg-card border border-border p-4 rounded-2xl h-fit space-y-5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Filtros</h3>
           
@@ -152,7 +145,7 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
             <select
               value={difficultyFilter}
               onChange={(e) => setDifficultyFilter(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
             >
               <option value="all">Todas las dificultades</option>
               <option value="beginner">Principiante (Fácil)</option>
@@ -167,7 +160,7 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
             <select
               value={useCaseFilter}
               onChange={(e) => setUseCaseFilter(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
             >
               <option value="all">Todos los usos</option>
               <option value="general">Uso General diario</option>
@@ -184,7 +177,7 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
             <select
               value={archFilter}
               onChange={(e) => setArchFilter(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+              className="w-full p-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/25"
             >
               <option value="all">Todas las arquitecturas</option>
               <option value="x86_64">64-bit (x86_64)</option>
@@ -194,15 +187,15 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
           </div>
         </div>
 
-        {/* CONTENEDOR DE TARJETAS DINÁMICAS */}
+        {/* CONTENEDOR DE TARJETAS */}
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredDistros.length === 0 ? (
             <div className="col-span-2 text-center p-12 text-muted-foreground bg-card rounded-2xl border border-border text-sm">
               No se han encontrado distribuciones que cumplan los criterios seleccionados.
             </div>
           ) : (
-            filteredDistros.map((distro) => {
-              const rawUseCase = Array.isArray(distro.useCases) ? distro.useCases[0] : (distro.useCases || 'General');
+            filteredDistros.map((element) => {
+              const rawUseCase = Array.isArray(element.useCases) ? element.useCases[0] : (element.useCases || 'General');
               const useCaseKey = String(rawUseCase).toLowerCase();
               
               const badgeStyle = USE_CASE_CONFIG[useCaseKey] || USE_CASE_CONFIG[String(rawUseCase)] || {
@@ -212,29 +205,26 @@ const matchesRam = (distro.minRam || 0) <= ramFilter;
               };
 
               return (
-                <div key={distro.id} className="bg-card border border-border p-5 rounded-2xl flex flex-col justify-between space-y-4 relative hover:shadow-md transition-shadow">
-                  {/* Cabecera de la Tarjeta */}
+                <div key={element.id} className="bg-card border border-border p-5 rounded-2xl flex flex-col justify-between space-y-4 relative hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start gap-3">
                     <div>
-                      <h3 className="text-sm font-black text-foreground">{distro.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{distro.tagline}</p>
+                      <h3 className="text-sm font-black text-foreground">{element.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{element.tagline}</p>
                     </div>
                     <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded shrink-0 ${badgeStyle.bg} ${badgeStyle.color}`}>
                       {badgeStyle.label}
                     </span>
                   </div>
 
-                  {/* Especificaciones Técnicas */}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground border-t border-border/45 pt-3">
-                    <span>📦 <strong className="text-foreground">{distro.minRam || 0}GB</strong> RAM</span>
-                    <span>⚙️ <strong className="text-foreground">{distro.minCpuCores || 0}</strong> CPU</span>
-                    <span>💾 <strong className="text-foreground">{distro.minStorage || 0}GB</strong> Disk</span>
+                    <span>📦 <strong className="text-foreground">{element.minRam || 0}GB</strong> RAM</span>
+                    <span>⚙️ <strong className="text-foreground">{element.minCpuCores || 0}</strong> CPU</span>
+                    <span>💾 <strong className="text-foreground">{element.minStorage || 0}GB</strong> Disk</span>
                   </div>
 
-                  {/* Enlace dinámico */}
                   <div className="text-right pt-2 border-t border-border/20">
                     <a 
-                      href={`/${lang}/distro-detail?id=${encodeURIComponent(distro.id)}`}
+                      href={`/${lang}/distro-detail?id=${encodeURIComponent(element.id)}`}
                       className="text-primary font-bold text-xs hover:underline inline-flex items-center gap-1"
                     >
                       Ver detalles ➔
