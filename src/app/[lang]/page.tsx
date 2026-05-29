@@ -20,7 +20,7 @@ export default function HomeSearchPage({ params }: HomeSearchPageProps) {
 
   // Filtros en el Estado
   const [searchQuery, setSearchQuery] = useState('');
-  const [ramFilter, setRamFilter] = useState(16); 
+const matchesRam = (distro.minRam || 0) <= ramFilter;
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [useCaseFilter, setUseCaseFilter] = useState('all');
   const [archFilter, setArchFilter] = useState('all');
